@@ -37,6 +37,11 @@ rebuild:
 logs service="":
     docker compose logs -f {{service}}
 
+# one-time setup after cloning
+[group('env')]
+hooks:
+    git config core.hooksPath .githooks
+
 # ==================================================
 # CODE QUALITY
 # ==================================================
@@ -44,18 +49,18 @@ logs service="":
 # Lint (Ruff + oxlint) check
 [group('quality')]
 lint:
-    docker compose exec backend ruff check .
-    docker compose exec backend ruff format --check .
-    docker compose exec frontend npm run lint
+    docker compose exec -T backend ruff check .
+    docker compose exec -T backend ruff format --check .
+    docker compose exec -T frontend npm run lint
 
 # Lint (Ruff + Prettier) fix
 [group('quality')]
 format:
-    docker compose exec backend ruff check . --fix
-    docker compose exec backend ruff format .
-    docker compose exec frontend npm run format
+    docker compose exec -T backend ruff check . --fix
+    docker compose exec -T backend ruff format .
+    docker compose exec -T frontend npm run format
 
 # backend tests
 [group('quality')]
 test *args:
-    docker compose exec backend pytest {{args}}
+    docker compose exec -T backend pytest {{args}}

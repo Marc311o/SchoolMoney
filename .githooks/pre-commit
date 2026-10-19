@@ -1,0 +1,12 @@
+#!/bin/sh
+before=$(git diff | git hash-object --stdin)
+
+just format || exit 1
+
+after=$(git diff | git hash-object --stdin)
+if [ "$before" != "$after" ]; then
+  echo "Code formatted. Check changes, add and commit again"
+  exit 1
+fi
+
+just lint
