@@ -22,8 +22,10 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      POSTGRES_USER: schoolmoney
+      POSTGRES_PASSWORD: schoolmoney
       POSTGRES_DB: schoolmoney
-      DATABASE_URL: postgresql+psycopg://schoolmoney:schoolmoney@localhost:5432/schoolmoney
+      POSTGRES_HOST: localhost
     defaults:
       run:
         working-directory: backend
