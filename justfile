@@ -22,6 +22,16 @@ up:
 up-d:
     docker compose up --build -d --wait -V
 
+# builds project with pgadmin
+[group('env')]
+tools:
+    docker compose --profile tools up --build -d -V
+
+# stops project
+[group('env')]
+down:
+    docker compose --profile tools down
+
 # restarts container
 [group('env')]
 restart service:
@@ -64,3 +74,30 @@ format:
 [group('quality')]
 test *args:
     docker compose exec -T backend pytest {{args}}
+
+
+# ==================================================
+# DATABASE
+# ==================================================
+
+# psql shell in the main database
+[group('db')]
+psql:
+    docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+# psql shell in the test database
+[group('db')]
+psql-test:
+    docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "${POSTGRES_DB}_test"'
+
+# start pgAdmin
+[group('db')]
+pgadmin:
+    docker compose --profile tools up -d pgadmin
+
+# wipe the database and start fresh
+[group('db')]
+[confirm("This action will clear ALL the data from the database. Continue?")]
+db-reset:
+    docker compose --profile tools down -v
+    docker compose up --build -d --wait -V
