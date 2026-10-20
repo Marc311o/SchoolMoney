@@ -4,7 +4,7 @@ Web app for managing school class fundraisers. Parents register, add children an
 with access codes; treasurers run fundraisers with virtual accounts, payments, withdrawals and
 invoices, generate financial reports and chat with parents. Includes an admin panel.
 
-**Stack:** FastAPI · PostgreSQL · React (Vite + TypeScript) · Docker
+**Stack:** FastAPI + PostgreSQL + React (Vite + TypeScript) + Docker
 
 ---
 
