@@ -101,3 +101,24 @@ pgadmin:
 db-reset:
     docker compose --profile tools down -v
     docker compose up --build -d --wait -V
+
+# apply all migrations
+[group('db')]
+migrate:
+    docker compose exec -T backend alembic upgrade head
+
+# creates new migration
+[group('db')]
+makemigration message:
+    docker compose exec -T backend alembic revision --autogenerate -m "{{message}}"
+
+# Undo migration
+[group('db')]
+[confirm("Undo newest migration?")]
+downgrade:
+     docker compose exec -T backend alembic downgrade -1
+
+# show the current migration
+[group('db')]
+migrate-status:
+    docker compose exec -T backend alembic current
