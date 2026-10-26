@@ -12,7 +12,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.modules.classrooms.enums import MembershipStatus
@@ -46,6 +46,31 @@ class SchoolClass(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    treasurer = relationship(
+        "User",
+        back_populates="classes_as_treasurer",
+    )
+
+    access_codes = relationship(
+        "ClassAccessCode",
+        back_populates="school_class",
+    )
+
+    memberships = relationship(
+        "ChildClassMembership",
+        back_populates="school_class",
+    )
+
+    fundraisers = relationship(
+        "Fundraiser",
+        back_populates="school_class",
+    )
+
+    chats = relationship(
+        "Chat",
+        back_populates="school_class",
     )
 
 
@@ -84,6 +109,11 @@ class ClassAccessCode(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    school_class = relationship(
+        "SchoolClass",
+        back_populates="access_codes",
     )
 
 
@@ -137,4 +167,14 @@ class ChildClassMembership(Base):
     left_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+
+    child = relationship(
+        "Child",
+        back_populates="class_memberships",
+    )
+
+    school_class = relationship(
+        "SchoolClass",
+        back_populates="memberships",
     )

@@ -13,7 +13,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.modules.accounts.enums import AccountType, TransactionType
@@ -80,6 +80,28 @@ class Account(Base):
         server_default=func.now(),
     )
 
+    user = relationship(
+        "User",
+        back_populates="account",
+    )
+
+    fundraiser = relationship(
+        "Fundraiser",
+        back_populates="account",
+    )
+
+    outgoing_transactions = relationship(
+        "Transaction",
+        foreign_keys="Transaction.from_account_id",
+        back_populates="from_account",
+    )
+
+    incoming_transactions = relationship(
+        "Transaction",
+        foreign_keys="Transaction.to_account_id",
+        back_populates="to_account",
+    )
+
 
 class Transaction(Base):
     __tablename__ = "transactions"
@@ -143,6 +165,50 @@ class Transaction(Base):
     )
 
 
+    from_account = relationship(
+        "Account",
+        foreign_keys=[from_account_id],
+        back_populates="outgoing_transactions",
+    )
+
+    to_account = relationship(
+        "Account",
+        foreign_keys=[to_account_id],
+        back_populates="incoming_transactions",
+    )
+
+    creator = relationship(
+        "User",
+        back_populates="transactions_created",
+    )
+
+    external_transfer = relationship(
+        "ExternalTransfer",
+        back_populates="transaction",
+        uselist=False,
+    )
+
+    fundraiser_payment = relationship(
+        "FundraiserPayment",
+        foreign_keys="FundraiserPayment.transaction_id",
+        back_populates="transaction",
+        uselist=False,
+    )
+
+    refund_for_payment = relationship(
+        "FundraiserPayment",
+        foreign_keys="FundraiserPayment.refund_transaction_id",
+        back_populates="refund_transaction",
+        uselist=False,
+    )
+
+    treasurer_operation = relationship(
+        "TreasurerOperation",
+        back_populates="transaction",
+        uselist=False,
+    )
+
+
 class ExternalBankAccount(Base):
     __tablename__ = "external_bank_accounts"
 
@@ -173,6 +239,16 @@ class ExternalBankAccount(Base):
         server_default=func.now(),
     )
 
+    user = relationship(
+        "User",
+        back_populates="external_bank_accounts",
+    )
+
+    transfers = relationship(
+        "ExternalTransfer",
+        back_populates="external_account",
+    )
+
 
 class ExternalTransfer(Base):
     __tablename__ = "external_transfers"
@@ -199,4 +275,14 @@ class ExternalTransfer(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    transaction = relationship(
+        "Transaction",
+        back_populates="external_transfer",
+    )
+
+    external_account = relationship(
+        "ExternalBankAccount",
+        back_populates="transfers",
     )

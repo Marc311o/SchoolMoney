@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.modules.fundraisers.enums import (
@@ -113,6 +113,42 @@ class Fundraiser(Base):
         nullable=True,
     )
 
+    school_class = relationship(
+        "SchoolClass",
+        back_populates="fundraisers",
+    )
+
+    author = relationship(
+        "User",
+        back_populates="fundraisers_authored",
+    )
+
+    account = relationship(
+        "Account",
+        back_populates="fundraiser",
+        uselist=False,
+    )
+
+    obligations = relationship(
+        "FundraiserObligation",
+        back_populates="fundraiser",
+    )
+
+    payments = relationship(
+        "FundraiserPayment",
+        back_populates="fundraiser",
+    )
+
+    treasurer_operations = relationship(
+        "TreasurerOperation",
+        back_populates="fundraiser",
+    )
+
+    invoices = relationship(
+        "Invoice",
+        back_populates="fundraiser",
+    )
+
 
 class FundraiserObligation(Base):
     __tablename__ = "fundraiser_obligations"
@@ -150,6 +186,16 @@ class FundraiserObligation(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    fundraiser = relationship(
+        "Fundraiser",
+        back_populates="obligations",
+    )
+
+    child = relationship(
+        "Child",
+        back_populates="fundraiser_obligations",
     )
 
 
@@ -209,6 +255,33 @@ class FundraiserPayment(Base):
         nullable=True,
     )
 
+    fundraiser = relationship(
+        "Fundraiser",
+        back_populates="payments",
+    )
+
+    child = relationship(
+        "Child",
+        back_populates="fundraiser_payments",
+    )
+
+    payer = relationship(
+        "User",
+        back_populates="fundraiser_payments",
+    )
+
+    transaction = relationship(
+        "Transaction",
+        foreign_keys=[transaction_id],
+        back_populates="fundraiser_payment",
+    )
+
+    refund_transaction = relationship(
+        "Transaction",
+        foreign_keys=[refund_transaction_id],
+        back_populates="refund_for_payment",
+    )
+
 
 class TreasurerOperation(Base):
     __tablename__ = "treasurer_operations"
@@ -261,6 +334,21 @@ class TreasurerOperation(Base):
         server_default=func.now(),
     )
 
+    fundraiser = relationship(
+        "Fundraiser",
+        back_populates="treasurer_operations",
+    )
+
+    author = relationship(
+        "User",
+        back_populates="treasurer_operations",
+    )
+
+    transaction = relationship(
+        "Transaction",
+        back_populates="treasurer_operation",
+    )
+
 
 class Invoice(Base):
     __tablename__ = "invoices"
@@ -301,4 +389,14 @@ class Invoice(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    fundraiser = relationship(
+        "Fundraiser",
+        back_populates="invoices",
+    )
+
+    added_by_user = relationship(
+        "User",
+        back_populates="invoices_added",
     )
