@@ -180,7 +180,7 @@ Table fundraisers {
   description text
   logo_url varchar(500)
 
-  amount_per_child decimal(12,2) [not null, note: 'Payments are "binary": every child owes this amount']
+  required_amount decimal(12,2) [not null, note: 'Total amount to be collected; used for progress bar']
 
   start_date date [not null]
   end_date date [not null]
@@ -192,7 +192,7 @@ Table fundraisers {
   closed_at timestamptz
 
   checks {
-    `amount_per_child > 0` [name: 'fundraiser_amount_positive']
+    `required_amount > 0` [name: 'fundraiser_amount_positive']
     `end_date >= start_date` [name: 'fundraiser_dates_valid']
   }
 }
@@ -203,7 +203,7 @@ Table fundraiser_obligations {
   fundraiser_id uuid [not null, ref: > fundraisers.id]
   child_id uuid [not null, ref: > children.id]
 
-  required_amount decimal(12,2) [not null, note: 'Copy of amount_per_child at the moment the row was created']
+  required_amount_per_child decimal(12,2) [not null, note: 'Copy of amount_per_child at the moment the row was created']
 
   created_at timestamptz [not null, default: `now()`]
 
