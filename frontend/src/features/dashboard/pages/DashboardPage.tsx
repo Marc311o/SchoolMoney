@@ -187,13 +187,13 @@ export function DashboardPage() {
                     {
                       label: 'Edytuj',
                       icon: <EditRoundedIcon />,
-                      onClick: () => console.log('Edit child'),
+                      onClick: () => {},
                       color: 'primary',
                     },
                     {
                       label: 'Usuń',
                       icon: <DeleteOutlineRoundedIcon />,
-                      onClick: () => console.log('Delete child'),
+                      onClick: () => {},
                       color: 'error',
                     },
                   ]}
@@ -206,7 +206,7 @@ export function DashboardPage() {
                     {
                       label: 'Blokuj',
                       icon: <BlockRoundedIcon />,
-                      onClick: () => console.log('Block Fundraiser'),
+                      onClick: () => {},
                       color: 'error',
                     },
                   ]}
