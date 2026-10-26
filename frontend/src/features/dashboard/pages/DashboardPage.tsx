@@ -5,8 +5,7 @@ import TextInput from '@/components/TextInput.tsx'
 import { useState } from 'react'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
-
-
+import UserStatusChip from '@/components/UserStatusChip.tsx'
 
 export function DashboardPage() {
   const health = useHealth()
@@ -38,6 +37,19 @@ export function DashboardPage() {
           {health.isPending && <p>Checking API…</p>}
           {health.isError && <p>API unreachable: {health.error.message}</p>}
           {health.isSuccess && <p>API status: {health.data.status}</p>}
+
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              gap: 2,
+              maxWidth: 320,
+              mb: 3,
+            }}
+          >
+            <UserStatusChip label="Treasurer" />
+            <UserStatusChip label="Administrator" />
+          </Box>
 
           <Box
             sx={{
