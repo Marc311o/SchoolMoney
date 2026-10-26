@@ -1,6 +1,5 @@
 import { useHealth } from '@/features/system/api'
 import { Box, Button, Chip } from '@mui/material'
-import Sidebar from '@/components/Sidebar'
 import TextInput from '@/components/TextInput.tsx'
 import { useState } from 'react'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
@@ -19,14 +18,6 @@ export function DashboardPage() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar
-        user={{ firstName: 'Jan', lastName: 'Kowalski' }}
-        activePath="/dashboard"
-        onNavigate={(path) => {
-          window.location.href = path
-        }}
-      />
-
       <Box
         component="main"
         sx={{
@@ -64,17 +55,13 @@ export function DashboardPage() {
               mb: 3,
             }}
           >
-            <AppButton label="Save changes"/>
+            <AppButton label="Save changes" />
             <AppButton label="Saving..." loading />
-            <AppButton label="Submit" type="submit" fullWidth/>
+            <AppButton label="Submit" type="submit" fullWidth />
 
-            <AppButtonOutlined label="Save changes"/>
+            <AppButtonOutlined label="Save changes" />
             <AppButtonOutlined label="Saving..." loading />
-            <AppButtonOutlined
-              label="Submit"
-              type="submit"
-              fullWidth
-            />
+            <AppButtonOutlined label="Submit" type="submit" fullWidth />
           </Box>
 
           <Box

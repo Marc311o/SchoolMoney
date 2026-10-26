@@ -34,12 +34,12 @@ interface SidebarProps {
 const SIDEBAR_WIDTH = 260
 
 const defaultItems: SidebarItem[] = [
-  { label: 'Dashboard', path: '/dashboard' },
-  { label: 'My children', path: '/my-children' },
+  { label: 'Dashboard', path: '/' },
+  { label: 'My children', path: '/children' },
   { label: 'Classes', path: '/classes' },
-  { label: 'Wallet', path: '/wallet' },
+  { label: 'Wallet', path: '/account' },
   { label: 'Chat', path: '/chat' },
-  { label: 'Report', path: '/report' },
+  { label: 'Report', path: '/reports' },
   { label: 'Settings', path: '/settings' },
 ]
 
