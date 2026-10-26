@@ -64,17 +64,16 @@ export function DashboardPage() {
               mb: 3,
             }}
           >
-            <AppButton label="Save changes" onClick={null} />
+            <AppButton label="Save changes"/>
             <AppButton label="Saving..." loading />
-            <AppButton label="Submit" type="submit" fullWidth onClick={null} />
+            <AppButton label="Submit" type="submit" fullWidth/>
 
-            <AppButtonOutlined label="Save changes" onClick={null} />
+            <AppButtonOutlined label="Save changes"/>
             <AppButtonOutlined label="Saving..." loading />
             <AppButtonOutlined
               label="Submit"
               type="submit"
               fullWidth
-              onClick={null}
             />
           </Box>
 
