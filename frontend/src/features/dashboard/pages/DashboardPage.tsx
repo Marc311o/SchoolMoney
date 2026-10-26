@@ -1,5 +1,5 @@
 import { useHealth } from '@/features/system/api'
-import { Box, Button, Chip } from '@mui/material'
+import { Box, Button, Chip, Typography } from '@mui/material'
 import TextInput from '@/components/TextInput.tsx'
 import { useState } from 'react'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
@@ -9,6 +9,10 @@ import AppButton from '@/components/AppButton.tsx'
 import AppButtonOutlined from '@/components/AppButtonOutlined.tsx'
 import WhiteCard from '@/components/WhiteCard.tsx'
 import PrimaryCard from '@/components/PrimaryCard.tsx'
+import AppListItem from '@/components/AppListItem.tsx'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
 
 export function DashboardPage() {
   const health = useHealth()
@@ -154,6 +158,59 @@ export function DashboardPage() {
             color="error"
             variant="outlined"
           />
+
+          {/* APP LIST ITEMS */}
+          <Box sx={{ width: '50%' }}>
+            <WhiteCard>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                }}
+              >
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+                  AppListItems
+                </Typography>
+
+                <AppListItem
+                  title="Anna Kowalska"
+                  subtitle="Klasa 3A · Saldo: 125,00 zł"
+                  initial="Anna"
+                  avatarColor="primary.main"
+                  actions={[
+                    {
+                      label: 'Edytuj',
+                      icon: <EditRoundedIcon />,
+                      onClick: () => console.log('Edit child'),
+                      color: 'primary',
+                    },
+                    {
+                      label: 'Usuń',
+                      icon: <DeleteOutlineRoundedIcon />,
+                      onClick: () => console.log('Delete child'),
+                      color: 'error',
+                    },
+                  ]}
+                />
+
+                <AppListItem
+                  title="Teatr - zbiórka"
+                  subtitle="Klasa 3B"
+                  actions={[
+                    {
+                      label: 'Blokuj',
+                      icon: <BlockRoundedIcon />,
+                      onClick: () => console.log('Block Fundraiser'),
+                      color: 'error',
+                    },
+                  ]}
+                />
+
+                <AppListItem title="Kawiarnia" subtitle="Klasa 3F" />
+              </Box>
+            </WhiteCard>
+          </Box>
         </section>
       </Box>
     </Box>
