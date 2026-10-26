@@ -6,6 +6,8 @@ import { useState } from 'react'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import UserStatusChip from '@/components/UserStatusChip.tsx'
+import AppButton from '@/components/AppButton.tsx'
+import AppButtonOutlined from '@/components/AppButtonOutlined.tsx'
 
 export function DashboardPage() {
   const health = useHealth()
@@ -49,6 +51,29 @@ export function DashboardPage() {
           >
             <UserStatusChip label="Treasurer" />
             <UserStatusChip label="Administrator" />
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              maxWidth: 320,
+              mb: 3,
+            }}
+          >
+            <AppButton label="Save changes" onClick={null} />
+            <AppButton label="Saving..." loading />
+            <AppButton label="Submit" type="submit" fullWidth onClick={null} />
+
+            <AppButtonOutlined label="Save changes" onClick={null} />
+            <AppButtonOutlined label="Saving..." loading />
+            <AppButtonOutlined
+              label="Submit"
+              type="submit"
+              fullWidth
+              onClick={null}
+            />
           </Box>
 
           <Box
