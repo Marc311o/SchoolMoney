@@ -8,6 +8,8 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import UserStatusChip from '@/components/UserStatusChip.tsx'
 import AppButton from '@/components/AppButton.tsx'
 import AppButtonOutlined from '@/components/AppButtonOutlined.tsx'
+import WhiteCard from '@/components/WhiteCard.tsx'
+import PrimaryCard from '@/components/PrimaryCard.tsx'
 
 export function DashboardPage() {
   const health = useHealth()
@@ -74,6 +76,36 @@ export function DashboardPage() {
               fullWidth
               onClick={null}
             />
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              width: '100%',
+              alignItems: 'stretch',
+              mb: 3,
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <PrimaryCard>
+                <h2>Welcome!</h2>
+                <p>Your dashboard overview</p>
+                <AppButtonOutlined label="Get started" />
+              </PrimaryCard>
+            </Box>
+
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <WhiteCard>
+                <h2>User details</h2>
+                <TextInput
+                  value={username}
+                  onChange={setUsername}
+                  placeholder="Username"
+                />
+                <AppButton label="Cancel" />
+              </WhiteCard>
+            </Box>
           </Box>
 
           <Box
