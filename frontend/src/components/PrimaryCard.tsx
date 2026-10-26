@@ -13,7 +13,8 @@ export default function PrimaryCard({
   return (
     <Box
       sx={{
-        bgcolor: 'primary.main',
+        background: (theme) =>
+          `linear-gradient(180deg, ${theme.palette.primary.dark} 67%, ${theme.palette.primary.main} 100%)`,
         color: 'primary.contrastText',
         borderRadius: 1,
         p: padding,
