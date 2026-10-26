@@ -8,6 +8,8 @@ from app.core.config import settings
 from app.core.database import Base
 from app.modules.users.models import User
 from app.modules.classrooms.models import SchoolClass, ClassAccessCode, ChildClassMembership
+from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, TreasurerOperation, FundraiserPayment, Invoice
+from app.modules.accounts.models import Account, Transaction, ExternalBankAccount, ExternalTransfer
 
 config = context.config
 
