@@ -13,12 +13,17 @@ import AppListItem from '@/components/AppListItem.tsx'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
+import SelectChips from '@/components/SelectChips'
 
 export function DashboardPage() {
   const health = useHealth()
 
+  // for text fields
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+
+  // for select chips
+  const [selectedRole, setSelectedRole] = useState<string | null>('parent')
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -209,6 +214,20 @@ export function DashboardPage() {
 
                 <AppListItem title="Kawiarnia" subtitle="Klasa 3F" />
               </Box>
+            </WhiteCard>
+          </Box>
+
+          <Box sx={{ width: '35%' }}>
+            <WhiteCard>
+              <SelectChips
+                options={[
+                  { label: 'Parent', value: 'parent' },
+                  { label: 'Treasurer', value: 'treasurer' },
+                  { label: 'Administrator', value: 'admin' },
+                ]}
+                value={selectedRole}
+                onChange={setSelectedRole}
+              />
             </WhiteCard>
           </Box>
         </section>
