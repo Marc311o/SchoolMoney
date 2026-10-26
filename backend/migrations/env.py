@@ -10,6 +10,7 @@ from app.modules.users.models import User
 from app.modules.classrooms.models import SchoolClass, ClassAccessCode, ChildClassMembership
 from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, TreasurerOperation, FundraiserPayment, Invoice
 from app.modules.accounts.models import Account, Transaction, ExternalBankAccount, ExternalTransfer
+from app.modules.chat.models import Chat, ChatParticipant, Message
 
 config = context.config
 
