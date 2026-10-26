@@ -232,7 +232,7 @@ Table fundraiser_payments {
   Note: 'A child counts as paid when the sum of its non-refunded payments reaches required_amount.'
 }
 
-Table fundraiser_treasurer_operations {
+Table treasurer_operations {
   id uuid [pk]
 
   fundraiser_id uuid [not null, ref: > fundraisers.id]
