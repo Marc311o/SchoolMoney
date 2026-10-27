@@ -33,7 +33,6 @@ export function LoginPage() {
             <Typography
               sx={{
                 paddingTop: '1em',
-                // paddingBottom: '1em',
                 fontFamily: 'Bricolage Grotesque, Segoe UI, sans-serif',
                 fontSize: { xs: '5vw', sm: '5vw', md: '4vw' },
                 fontWeight: '700',
@@ -49,7 +48,7 @@ export function LoginPage() {
           <TextInput
             value={email}
             onChange={setEmail}
-            placeholder={'anna@example.com'}
+            placeholder={'johndoe@example.com'}
             name={email}
             icon={<EmailRoundedIcon fontSize="small" />}
           />
