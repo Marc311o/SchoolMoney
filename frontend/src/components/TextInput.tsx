@@ -30,7 +30,7 @@ export default function TextInput({
   password = false,
   error = false,
   errorText,
-  label = ''
+  label = '',
 }: TextInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 

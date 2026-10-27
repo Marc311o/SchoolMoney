@@ -1,13 +1,11 @@
 import { Typography, Grid, Box } from '@mui/material'
 
-interface SideBannerProps{
+interface SideBannerProps {
   heroText: string
   descText?: string
-
 }
 
-export default function SideBanner({heroText, descText}: SideBannerProps){
-
+export default function SideBanner({ heroText, descText }: SideBannerProps) {
   return (
     <Grid
       size={{ sm: 6, md: 4 }}

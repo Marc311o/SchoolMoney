@@ -2,23 +2,19 @@ import { Typography, Grid, Box, Divider, Stack } from '@mui/material'
 import TextInput from '@/components/TextInput.tsx'
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
-import {useState} from 'react'
+import { useState } from 'react'
 import AppButton from '@/components/AppButton.tsx'
 import AppButtonOutlined from '@/components/AppButtonOutlined.tsx'
 import SideBanner from '@/features/auth/components/SideBanner.tsx'
 import { useNavigate } from 'react-router'
 
-
 export function LoginPage() {
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const navigate = useNavigate()
-
 
   return (
     <Grid container spacing={2} sx={{ height: '100vh' }}>
-
       <SideBanner
         heroText={'Every class fundraiser, settled in one place.'}
         descText={
@@ -76,7 +72,11 @@ export function LoginPage() {
           </Box>
 
           <Box>
-            <AppButtonOutlined fullWidth={true} label={'Create an account'} onClick={() => navigate('/register')}/>
+            <AppButtonOutlined
+              fullWidth={true}
+              label={'Create an account'}
+              onClick={() => navigate('/register')}
+            />
           </Box>
         </Stack>
       </Grid>
