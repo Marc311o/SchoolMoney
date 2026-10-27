@@ -16,6 +16,7 @@ interface TextInputProps {
   password?: boolean
   error?: boolean
   errorText?: string
+  label?: string
 }
 
 export default function TextInput({
@@ -29,6 +30,7 @@ export default function TextInput({
   password = false,
   error = false,
   errorText,
+  label = '',
 }: TextInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 
@@ -37,6 +39,7 @@ export default function TextInput({
 
   return (
     <TextField
+      label={label}
       name={name}
       type={inputType}
       value={value}
