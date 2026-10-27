@@ -99,7 +99,8 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "(account_type = 'USER' AND user_id IS NOT NULL AND fundraiser_id IS NULL) OR (account_type = 'FUNDRAISER' AND fundraiser_id IS NOT NULL AND user_id IS NULL)",
+            "(account_type = 'USER' AND user_id IS NOT NULL AND fundraiser_id IS NULL) OR "
+            "(account_type = 'FUNDRAISER' AND fundraiser_id IS NOT NULL AND user_id IS NULL)",
             name=op.f("ck_accounts_account_owner_matches_type"),
         ),
         sa.CheckConstraint("balance >= 0", name=op.f("ck_accounts_account_balance_not_negative")),

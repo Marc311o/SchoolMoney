@@ -4,12 +4,14 @@ from uuid import UUID
 from sqlalchemy import (
     Date,
     DateTime,
-    Enum as SAEnum,
     ForeignKey,
     String,
     Uuid,
     func,
     text,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -79,7 +81,6 @@ class User(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
 
     children = relationship(
         "Child",

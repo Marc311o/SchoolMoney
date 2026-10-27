@@ -5,13 +5,15 @@ from uuid import UUID
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
-    Enum as SAEnum,
     ForeignKey,
     Numeric,
     String,
     Uuid,
     func,
     text,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -163,7 +165,6 @@ class Transaction(Base):
         String(500),
         nullable=True,
     )
-
 
     from_account = relationship(
         "Account",
