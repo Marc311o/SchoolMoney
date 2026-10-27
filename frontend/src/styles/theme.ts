@@ -103,6 +103,11 @@ export const theme = createTheme({
   typography: {
     fontFamily: 'Arial, sans-serif',
 
+    fontWeightLight: 300,
+    fontWeightRegular: 400,
+    fontWeightMedium: 500,
+    fontWeightBold: 700,
+
     h1: {
       fontSize: '2.5rem',
       fontWeight: 700,
@@ -116,11 +121,12 @@ export const theme = createTheme({
     body1: {
       fontSize: '1rem',
       lineHeight: 1.6,
+      fontWeight: 400,
     },
 
     button: {
       textTransform: 'none',
-      fontWeight: 600,
+      fontWeight: 500,
     },
   },
 

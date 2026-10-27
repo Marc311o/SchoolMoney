@@ -4,6 +4,9 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 import { ChildrenPage } from '@/features/children/pages/ChildrenPage'
 import { ClassesPage } from '@/features/classes/pages/ClassesPage'
+import { ChatPage } from '@/features/chat/pages/ChatPage'
+import { ReportsPage } from '@/features/reports/pages/ReportsPage'
+import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { WalletPage } from '@/features/wallet/pages/WalletPage'
 import { AppLayout } from '@/layouts/AppLayout.tsx'
@@ -28,6 +31,9 @@ export const router = createBrowserRouter([
       { path: '/children', element: <ChildrenPage /> },
       { path: '/classes', element: <ClassesPage /> },
       { path: '/account', element: <WalletPage /> },
+      { path: '/chat', element: <ChatPage /> },
+      { path: '/reports', element: <ReportsPage /> },
+      { path: '/settings', element: <SettingsPage /> },
     ],
   },
 
