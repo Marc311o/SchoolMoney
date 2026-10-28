@@ -6,11 +6,19 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+import app.modules.accounts.models  # noqa: F401
+import app.modules.chat.models  # noqa: F401
+import app.modules.classrooms.models  # noqa: F401
+import app.modules.fundraisers.models  # noqa: F401
+import app.modules.users.models  # noqa: F401
 from app.core.database import get_db
+from app.modules.users.router import router as auth_router
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SchoolMoney")
+
+app.include_router(auth_router, prefix="/api")
 
 
 @app.get("/api/health")
