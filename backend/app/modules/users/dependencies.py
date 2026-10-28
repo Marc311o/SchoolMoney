@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.core.security import decode_token
 from app.modules.users.enums import UserStatus
 from app.modules.users.models import User
 from app.modules.users.service import get_user_by_id
@@ -26,7 +26,7 @@ def get_current_user(
     )
     token = credentials.credentials
     try:
-        payload = decode_access_token(token)
+        payload = decode_token(token, expected_type="access")
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception

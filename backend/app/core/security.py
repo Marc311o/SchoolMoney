@@ -27,9 +27,34 @@ def create_access_token(subject: str | Any, expires_delta: timedelta | None = No
     to_encode = {
         "exp": expire,
         "sub": str(subject),
+        "type": "access",
     }
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_refresh_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
+    if expires_delta:
+        expire = datetime.now(UTC) + expires_delta
+    else:
+        expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "type": "refresh",
+    }
+    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_token(token: str, expected_type: str = "access") -> dict[str, Any]:
+    payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    token_type = payload.get("type")
+    if token_type != expected_type:
+        raise jwt.InvalidTokenError(
+            f"Invalid token type: expected {expected_type}, got {token_type}"
+        )
+    return payload
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    return decode_token(token, expected_type="access")

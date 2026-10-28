@@ -1,11 +1,16 @@
-from decimal import Decimal
 from uuid import UUID, uuid4
 
+import jwt
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
 from app.modules.accounts.enums import AccountType
 from app.modules.accounts.models import Account
 from app.modules.accounts.utils import generate_fake_iban
@@ -14,33 +19,40 @@ from app.modules.users.models import User
 from app.modules.users.schemas import TokenRead, UserLogin, UserRegister
 
 
+def get_user_by_id(db: Session, user_id: UUID) -> User | None:
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def get_user_by_email(db: Session, email: str) -> User | None:
+    return db.query(User).filter(User.email == email).first()
+
+
 def register_user(db: Session, data: UserRegister) -> User:
-    stmt = select(User).where(User.email == data.email)
-    if db.execute(stmt).scalar_one_or_none():
+    existing_user = get_user_by_email(db, email=data.email)
+    if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User with this email already exists",
         )
 
-    user_id = uuid4()
     user = User(
-        id=user_id,
+        id=uuid4(),
         email=data.email,
         password_hash=hash_password(data.password),
         first_name=data.first_name,
         last_name=data.last_name,
-        avatar_url=data.avatar_url,
+        avatar_url=str(data.avatar_url) if data.avatar_url else None,
         role=UserRole.PARENT,
         status=UserStatus.ACTIVE,
     )
     db.add(user)
+    db.flush()
 
     account = Account(
         id=uuid4(),
+        user_id=user.id,
         iban=generate_fake_iban(),
         account_type=AccountType.USER,
-        user_id=user_id,
-        balance=Decimal("0.00"),
     )
     db.add(account)
 
@@ -50,26 +62,51 @@ def register_user(db: Session, data: UserRegister) -> User:
 
 
 def authenticate_user(db: Session, data: UserLogin) -> TokenRead:
-    stmt = select(User).where(User.email == data.email)
-    user = db.execute(stmt).scalar_one_or_none()
-
+    user = get_user_by_email(db, email=data.email)
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
-
     if user.status == UserStatus.BLOCKED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is blocked",
         )
 
-    token = create_access_token(subject=str(user.id))
-    return TokenRead(access_token=token, token_type="bearer")
+    return TokenRead(
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
+        token_type="bearer",
+    )
 
 
-def get_user_by_id(db: Session, user_id: UUID) -> User | None:
-    stmt = select(User).where(User.id == user_id)
-    return db.execute(stmt).scalar_one_or_none()
+def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = decode_token(refresh_token, expected_type="refresh")
+        user_id_str: str | None = payload.get("sub")
+        if not user_id_str:
+            raise credentials_exception
+        user_id = UUID(user_id_str)
+    except (jwt.PyJWTError, ValueError):
+        raise credentials_exception from None
+
+    user = get_user_by_id(db, user_id=user_id)
+    if not user:
+        raise credentials_exception
+    if user.status == UserStatus.BLOCKED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is blocked",
+        )
+
+    return TokenRead(
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
+        token_type="bearer",
+    )
