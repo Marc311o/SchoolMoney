@@ -13,9 +13,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.accounts.models import Account, Transaction
+from app.modules.children.models import Child
 from app.modules.classrooms.models import ChildClassMembership, ClassAccessCode, SchoolClass
 from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, FundraiserPayment
-from app.modules.users.models import Child, User
+from app.modules.users.models import User
 
 MONEY_FORMAT = "#,##0.00"
 DATE_FORMAT = "yyyy-mm-dd"

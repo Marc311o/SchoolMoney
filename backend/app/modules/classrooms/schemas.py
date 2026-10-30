@@ -5,8 +5,8 @@ from uuid import UUID
 from pydantic import StringConstraints, field_validator, model_validator
 
 from app.common.schemas import SchemaBase
+from app.modules.children.schemas import ChildSummaryRead
 from app.modules.classrooms.enums import MembershipStatus
-from app.modules.users.schemas import ChildSummaryRead
 
 ClassName = Annotated[
     str,

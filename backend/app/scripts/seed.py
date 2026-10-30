@@ -9,7 +9,7 @@ from uuid import uuid4
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-import app.modules.chat.models  # noqa: F401  (registers all tables on Base.metadata)
+import app.models  # noqa: F401  (registers all tables on Base.metadata)
 from app.core.database import Base, SessionLocal
 from app.core.security import hash_password
 from app.modules.accounts.enums import AccountType, TransactionType
@@ -21,6 +21,7 @@ from app.modules.accounts.models import (
 )
 from app.modules.accounts.utils import generate_fake_iban
 from app.modules.chat.models import Chat, ChatParticipant, Message
+from app.modules.children.models import Child
 from app.modules.classrooms.enums import MembershipStatus
 from app.modules.classrooms.models import ChildClassMembership, ClassAccessCode, SchoolClass
 from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
@@ -32,7 +33,7 @@ from app.modules.fundraisers.models import (
     TreasurerOperation,
 )
 from app.modules.users.enums import UserRole, UserStatus
-from app.modules.users.models import Child, User
+from app.modules.users.models import User
 
 EMAIL_DOMAIN = "example.com"
 SCHOOL_NAME = "SP nr 67, Łódź"
