@@ -1,5 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from datetime import date, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -7,96 +6,42 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.accounts.enums import TransactionType
-from app.modules.accounts.models import Transaction
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import MembershipStatus
 from app.modules.classrooms.models import ChildClassMembership, SchoolClass
 from app.modules.fundraisers.enums import FundraiserStatus
-from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, FundraiserPayment
-from app.modules.users.models import User
+from app.modules.fundraisers.models import FundraiserObligation
+from tests.conftest import AuthHeaders
+from tests.factories import (
+    make_class,
+    make_fundraiser,
+    make_membership,
+    make_obligation,
+    make_payment,
+)
 
-PASSWORD = "safePassword123!"
 CHILD = {"first_name": "Ola", "last_name": "Kot", "birth_date": "2018-05-04"}
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def auth_headers(client: TestClient, email: str) -> dict[str, str]:
-    """Register a parent and return the Authorization header for them."""
-    client.post(
-        "/api/auth/register",
-        json={"email": email, "password": PASSWORD, "first_name": "Anna", "last_name": "Kot"},
-    )
-    tokens = client.post("/api/auth/login", json={"email": email, "password": PASSWORD}).json()
-    return {"Authorization": f"Bearer {tokens['access_token']}"}
-
-
-@pytest.fixture
-def parent(client: TestClient) -> dict[str, str]:
-    return auth_headers(client, "parent@example.com")
-
-
 def add_child(client: TestClient, headers: dict[str, str], **overrides) -> dict:
+    """Create a child through the API and return the response body."""
     response = client.post("/api/children", json={**CHILD, **overrides}, headers=headers)
     assert response.status_code == 201, response.text
     return response.json()
 
 
-def put_in_class(db: Session, child_id: str, status=MembershipStatus.ACTIVE) -> SchoolClass:
-    child = db.get(Child, UUID(child_id))
-    school_class = SchoolClass(id=uuid4(), name="1A", treasurer_id=child.parent_id)
-    db.add(school_class)
-    db.flush()
-    db.add(
-        ChildClassMembership(id=uuid4(), child_id=child.id, class_id=school_class.id, status=status)
-    )
-    db.flush()
-    return school_class
-
-
-def add_fundraiser(db: Session, school_class: SchoolClass, status: FundraiserStatus) -> Fundraiser:
-    fundraiser = Fundraiser(
-        id=uuid4(),
-        class_id=school_class.id,
-        author_id=school_class.treasurer_id,
-        name=f"Trip ({status})",
-        required_amount=Decimal("50.00"),
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30),
-        status=status,
-    )
-    db.add(fundraiser)
-    db.flush()
-    return fundraiser
-
-
-def add_payment(db: Session, fundraiser: Fundraiser, child_id: str, refunded: bool = False) -> None:
-    child = db.get(Child, UUID(child_id))
-    transaction = Transaction(
-        id=uuid4(),
-        from_account_id=db.scalar(select(User).where(User.id == child.parent_id)).account.id,
-        type=TransactionType.FUNDRAISER_PAYMENT,
-        amount=Decimal("50.00"),
-        created_by=child.parent_id,
-    )
-    db.add(transaction)
-    db.flush()
-    db.add(
-        FundraiserPayment(
-            id=uuid4(),
-            fundraiser_id=fundraiser.id,
-            child_id=child.id,
-            payer_id=child.parent_id,
-            transaction_id=transaction.id,
-            amount=Decimal("50.00"),
-            refunded_at=datetime.now(UTC) if refunded else None,
-        )
-    )
-    db.flush()
+def child_in_class(
+    client: TestClient,
+    db: Session,
+    headers: dict[str, str],
+    status: MembershipStatus = MembershipStatus.ACTIVE,
+) -> tuple[dict, SchoolClass]:
+    """A new child already placed in a new class."""
+    child = add_child(client, headers)
+    child_id = UUID(child["id"])
+    school_class = make_class(db, treasurer_id=db.get(Child, child_id).parent_id)
+    make_membership(db, child_id, school_class.id, status)
+    return child, school_class
 
 
 # ---------------------------------------------------------------------------
@@ -114,8 +59,8 @@ def test_list_is_empty_for_a_new_parent(client: TestClient, parent):
     assert response.json() == []
 
 
-def test_parent_sees_only_own_children(client: TestClient, parent):
-    other = auth_headers(client, "other@example.com")
+def test_parent_sees_only_own_children(client: TestClient, parent, auth_headers: AuthHeaders):
+    other = auth_headers("other@example.com")
     add_child(client, parent)
     foreign = add_child(client, other, first_name="Jan")
 
@@ -190,8 +135,7 @@ def test_different_birth_date_creates_a_new_child(client: TestClient, parent):
 
 
 def test_get_child_shows_current_class(client: TestClient, db: Session, parent):
-    child = add_child(client, parent)
-    school_class = put_in_class(db, child["id"], MembershipStatus.PENDING)
+    child, school_class = child_in_class(client, db, parent, MembershipStatus.PENDING)
 
     body = client.get(f"/api/children/{child['id']}", headers=parent).json()
     assert body["school_class"] == {
@@ -249,20 +193,11 @@ def test_remove_child(client: TestClient, db: Session, parent):
 
 
 def test_remove_leaves_class_and_drops_open_obligations(client: TestClient, db: Session, parent):
-    child = add_child(client, parent)
-    school_class = put_in_class(db, child["id"])
-    active = add_fundraiser(db, school_class, FundraiserStatus.ACTIVE)
-    closed = add_fundraiser(db, school_class, FundraiserStatus.CLOSED)
-    for fundraiser in (active, closed):
-        db.add(
-            FundraiserObligation(
-                id=uuid4(),
-                fundraiser_id=fundraiser.id,
-                child_id=UUID(child["id"]),
-                required_amount_per_child=Decimal("50.00"),
-            )
-        )
-    db.flush()
+    child, school_class = child_in_class(client, db, parent)
+    active = make_fundraiser(db, school_class, FundraiserStatus.ACTIVE)
+    closed = make_fundraiser(db, school_class, FundraiserStatus.CLOSED)
+    make_obligation(db, active, UUID(child["id"]))
+    make_obligation(db, closed, UUID(child["id"]))
 
     assert client.delete(f"/api/children/{child['id']}", headers=parent).status_code == 204
 
@@ -280,9 +215,8 @@ def test_remove_leaves_class_and_drops_open_obligations(client: TestClient, db: 
 
 
 def test_remove_is_blocked_by_payment_in_open_fundraiser(client: TestClient, db: Session, parent):
-    child = add_child(client, parent)
-    school_class = put_in_class(db, child["id"])
-    add_payment(db, add_fundraiser(db, school_class, FundraiserStatus.ACTIVE), child["id"])
+    child, school_class = child_in_class(client, db, parent)
+    make_payment(db, make_fundraiser(db, school_class, FundraiserStatus.ACTIVE), UUID(child["id"]))
 
     response = client.delete(f"/api/children/{child['id']}", headers=parent)
     assert response.status_code == 409
@@ -298,8 +232,8 @@ def test_remove_is_blocked_by_payment_in_open_fundraiser(client: TestClient, db:
 def test_remove_is_allowed_after_payment_is_settled(
     client: TestClient, db: Session, parent, fundraiser_status, refunded
 ):
-    child = add_child(client, parent)
-    school_class = put_in_class(db, child["id"])
-    add_payment(db, add_fundraiser(db, school_class, fundraiser_status), child["id"], refunded)
+    child, school_class = child_in_class(client, db, parent)
+    fundraiser = make_fundraiser(db, school_class, fundraiser_status)
+    make_payment(db, fundraiser, UUID(child["id"]), refunded=refunded)
 
     assert client.delete(f"/api/children/{child['id']}", headers=parent).status_code == 204

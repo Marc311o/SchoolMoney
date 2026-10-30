@@ -5,9 +5,13 @@ Test database
 
 Isolation
     Every test runs inside a transaction that is ROLLED BACK at the end.
+
+Where things live
+    conftest.py    fixtures pytest injects by name (db, client, auth_headers, parent)
+    factories.py   make_* functions that put rows straight into the database
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -80,3 +84,36 @@ def client(db: Session) -> Iterator[TestClient]:
             yield c
     finally:
         app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+
+PASSWORD = "safePassword123!"
+
+AuthHeaders = Callable[[str], dict[str, str]]
+
+
+@pytest.fixture
+def auth_headers(client: TestClient) -> AuthHeaders:
+    """Register a parent with the given email and return their Authorization header.
+
+    Usage: headers = auth_headers("anna@example.com")
+    """
+
+    def _auth_headers(email: str) -> dict[str, str]:
+        client.post(
+            "/api/auth/register",
+            json={"email": email, "password": PASSWORD, "first_name": "Anna", "last_name": "Kot"},
+        )
+        tokens = client.post("/api/auth/login", json={"email": email, "password": PASSWORD}).json()
+        return {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    return _auth_headers
+
+
+@pytest.fixture
+def parent(auth_headers: AuthHeaders) -> dict[str, str]:
+    """Authorization header of a freshly registered parent."""
+    return auth_headers("parent@example.com")
