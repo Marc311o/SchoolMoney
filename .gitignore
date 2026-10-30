@@ -79,3 +79,6 @@ logs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---------- seed data preview file ----------
+seed_data.xlsx
