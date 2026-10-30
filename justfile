@@ -122,3 +122,9 @@ downgrade:
 [group('db')]
 migrate-status:
     docker compose exec -T backend alembic current
+
+
+# fill the database with test data (`just seed --help` for options)
+[group('db')]
+seed *args:
+    docker compose exec -T backend python -m app.scripts.seed {{args}}
