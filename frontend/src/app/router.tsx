@@ -12,28 +12,40 @@ import { WalletPage } from '@/features/wallet/pages/WalletPage'
 import { AppLayout } from '@/layouts/AppLayout.tsx'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { GuestOnly } from '@/features/auth/components/GuestOnly.tsx'
+import { RequireAuth } from '@/features/auth/components/RequireAuth.tsx'
 
 export const router = createBrowserRouter([
   // Public: not signed in
   {
     element: <AuthLayout />,
     children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/register', element: <RegisterPage /> },
+      {
+        element: <GuestOnly />,
+        children: [
+          { path: '/login', element: <LoginPage /> },
+          { path: '/register', element: <RegisterPage /> },
+        ],
+      },
     ],
   },
 
   // Signed in
   {
-    element: <AppLayout />,
+    element: <RequireAuth />,
     children: [
-      { path: '/', element: <DashboardPage /> },
-      { path: '/children', element: <ChildrenPage /> },
-      { path: '/classes', element: <ClassesPage /> },
-      { path: '/account', element: <WalletPage /> },
-      { path: '/chat', element: <ChatPage /> },
-      { path: '/reports', element: <ReportsPage /> },
-      { path: '/settings', element: <SettingsPage /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/', element: <DashboardPage /> },
+          { path: '/children', element: <ChildrenPage /> },
+          { path: '/classes', element: <ClassesPage /> },
+          { path: '/account', element: <WalletPage /> },
+          { path: '/chat', element: <ChatPage /> },
+          { path: '/reports', element: <ReportsPage /> },
+          { path: '/settings', element: <SettingsPage /> },
+        ],
+      },
     ],
   },
 
