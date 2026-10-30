@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import Field, computed_field, field_validator, model_validator
 
 from app.common.schemas import AvatarUrl, FirstName, LastName, SchemaBase, reject_explicit_nulls
+from app.modules.classrooms.enums import MembershipStatus
 
 
 class ChildCreate(SchemaBase):
@@ -57,6 +58,15 @@ class ChildSummaryRead(SchemaBase):
         return self.deleted_at is not None
 
 
+class ChildClassRead(SchemaBase):
+    """The class a child currently belongs to (or is waiting to join)."""
+
+    id: UUID
+    name: str
+    status: MembershipStatus
+
+
 class ChildRead(ChildSummaryRead):
     birth_date: date
     created_at: datetime
+    school_class: ChildClassRead | None = None
