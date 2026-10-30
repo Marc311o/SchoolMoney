@@ -31,9 +31,9 @@ class Child(Base):
         nullable=False,
     )
 
-    birth_date: Mapped[date | None] = mapped_column(
+    birth_date: Mapped[date] = mapped_column(
         Date,
-        nullable=True,
+        nullable=False,
     )
 
     avatar_url: Mapped[str | None] = mapped_column(
@@ -45,6 +45,11 @@ class Child(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     parent = relationship(

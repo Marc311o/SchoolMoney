@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     String,
     UniqueConstraint,
     Uuid,
@@ -126,6 +127,13 @@ class ChildClassMembership(Base):
         UniqueConstraint(
             "child_id",
             "class_id",
+        ),
+        # A child belongs to at most one class at a time (finished memberships are history)
+        Index(
+            "uq_child_class_memberships_one_current_class",
+            "child_id",
+            unique=True,
+            postgresql_where=text("status IN ('ACTIVE', 'PENDING')"),
         ),
     )
 

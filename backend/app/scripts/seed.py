@@ -331,6 +331,7 @@ def seed_class(
         parent_id=newcomer.id,
         first_name=rng.choice(CHILD_NAMES),
         last_name=newcomer.last_name,
+        birth_date=date(2026 - 7 - index, rng.randint(1, 12), rng.randint(1, 28)),
     )
     db.add(pending_child)
     db.flush()
@@ -556,6 +557,7 @@ def seed(db: Session, config: SeedConfig) -> list[tuple[str, str]]:
             parent_id=multi.id,
             first_name=rng.choice(CHILD_NAMES),
             last_name=multi.last_name,
+            birth_date=date(2026 - 8, rng.randint(1, 12), rng.randint(1, 28)),
         )
         db.add(second)
         db.flush()
