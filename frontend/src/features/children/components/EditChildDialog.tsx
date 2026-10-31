@@ -15,18 +15,39 @@ import AppButtonOutlined from '@/components/AppButtonOutlined'
 import TextInput from '@/components/TextInput'
 import AppAvatar from '@/components/AppAvatar'
 
-import type { Child } from '@/features/children/api'
+import type { Child, ChildUpdate } from '@/features/children/api'
+import { type ApiError, getFieldErrors } from '@/lib/api'
 
 interface EditChildDialogProps {
   open: boolean
   child: Child | null
   onClose: () => void
-  onConfirm: (child: {
-    id: Child['id']
-    first_name: string
-    last_name: string
-    birth_date: string
-  }) => void
+  onConfirm: (data: ChildUpdate) => void
+  loading?: boolean
+  error?: ApiError | null
+}
+
+type ChildErrors = {
+  first_name?: string
+  last_name?: string
+  birth_date?: string
+  general?: string
+}
+
+function serverErrors(error: ApiError): ChildErrors {
+  if (error.status === 409) {
+    return {
+      general: 'A child with these details already exists.',
+    }
+  }
+
+  if (error.status === 422) {
+    return getFieldErrors(error) as ChildErrors
+  }
+
+  return {
+    general: 'Something went wrong. Please try again.',
+  }
 }
 
 export default function EditChildDialog({
@@ -34,6 +55,8 @@ export default function EditChildDialog({
   child,
   onClose,
   onConfirm,
+  loading = false,
+  error,
 }: EditChildDialogProps) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -52,13 +75,30 @@ export default function EditChildDialog({
     }
   }, [open, child])
 
-  const firstNameError = submitted && !firstName.trim()
-  const lastNameError = submitted && !lastName.trim()
-  const birthDateError = submitted && !birthDate
+  const apiErrors: ChildErrors = error ? serverErrors(error) : {}
+
+  const firstNameError =
+    submitted && !firstName.trim()
+      ? 'First name is required'
+      : apiErrors.first_name
+
+  const lastNameError =
+    submitted && !lastName.trim()
+      ? 'Last name is required'
+      : apiErrors.last_name
+
+  const birthDateError =
+    submitted && !birthDate
+      ? 'Date of birth is required'
+      : birthDate > today
+        ? 'Date cannot be in the future'
+        : apiErrors.birth_date
 
   const fullName = `${firstName} ${lastName}`.trim()
 
   const handleClose = () => {
+    if (loading) return
+
     setFirstName('')
     setLastName('')
     setBirthDate('')
@@ -80,14 +120,27 @@ export default function EditChildDialog({
       return
     }
 
-    onConfirm({
-      id: child.id,
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      birth_date: birthDate,
-    })
+    const data: ChildUpdate = {}
 
-    handleClose()
+    if (firstName.trim() !== child.first_name) {
+      data.first_name = firstName.trim()
+    }
+
+    if (lastName.trim() !== child.last_name) {
+      data.last_name = lastName.trim()
+    }
+
+    if (birthDate !== child.birth_date) {
+      data.birth_date = birthDate
+    }
+
+    // Nothing changed
+    if (Object.keys(data).length === 0) {
+      handleClose()
+      return
+    }
+
+    onConfirm(data)
   }
 
   return (
@@ -96,18 +149,17 @@ export default function EditChildDialog({
 
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          {/* Child avatar */}
           <AppAvatar name={fullName || 'A'} size={64} randomColor={false} />
 
-          {/* First name and last name */}
           <Stack direction="row" spacing={2}>
             <TextInput
               label="First name"
               placeholder="First name"
               value={firstName}
               onChange={setFirstName}
-              error={firstNameError}
-              errorText={firstNameError ? 'First name is required' : undefined}
+              error={!!firstNameError}
+              errorText={firstNameError}
+              disabled={loading}
             />
 
             <TextInput
@@ -115,26 +167,21 @@ export default function EditChildDialog({
               placeholder="Last name"
               value={lastName}
               onChange={setLastName}
-              error={lastNameError}
-              errorText={lastNameError ? 'Last name is required' : undefined}
+              error={!!lastNameError}
+              errorText={lastNameError}
+              disabled={loading}
             />
           </Stack>
 
-          {/* Date of birth */}
           <TextField
             fullWidth
             label="Date of birth"
             type="date"
             value={birthDate}
             onChange={(event) => setBirthDate(event.target.value)}
-            error={birthDateError || birthDate > today}
-            helperText={
-              birthDateError
-                ? 'Date of birth is required'
-                : birthDate > today
-                  ? 'Date cannot be in the future'
-                  : undefined
-            }
+            error={!!birthDateError}
+            helperText={birthDateError}
+            disabled={loading}
             slotProps={{
               inputLabel: { shrink: true },
               htmlInput: { max: today },
@@ -146,12 +193,24 @@ export default function EditChildDialog({
             Make sure the child's details are correct. Their class and
             fundraiser history will remain associated with their account.
           </Typography>
+
+          {apiErrors.general && (
+            <Typography color="error" variant="body2">
+              {apiErrors.general}
+            </Typography>
+          )}
         </Stack>
       </DialogContent>
 
       <DialogActions sx={{ p: 2, gap: 1 }}>
         <AppButtonOutlined label="Cancel" onClick={handleClose} />
-        <AppButton label="Save changes" onClick={handleConfirm} />
+
+        <AppButton
+          label="Save changes"
+          onClick={handleConfirm}
+          loading={loading}
+          disabled={loading}
+        />
       </DialogActions>
     </Dialog>
   )
