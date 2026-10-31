@@ -22,10 +22,16 @@ interface AppAvatarProps {
   name: string
   src?: string | null
   size?: number
+  randomColor?: boolean
 }
 
-export default function AppAvatar({ name, src, size = 56 }: AppAvatarProps) {
-  const color = colorFor(name)
+export default function AppAvatar({
+  name,
+  src,
+  size = 56,
+  randomColor = true,
+}: AppAvatarProps) {
+  const color = randomColor ? colorFor(name) : { bg: '#E9DCF5', fg: '#4B2A6B' }
 
   return (
     <Avatar
