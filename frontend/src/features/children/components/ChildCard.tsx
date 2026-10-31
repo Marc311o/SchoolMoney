@@ -56,9 +56,10 @@ function ClassInfo({ schoolClass }: { schoolClass: ChildClass | null }) {
   if (!schoolClass) {
     return (
       <Stack
-        spacing={1.25}
+        direction="row"
         sx={{
-          alignItems: 'flex-start',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           p: 1.5,
           border: '1px dashed',
           borderColor: 'divider',
@@ -68,6 +69,7 @@ function ClassInfo({ schoolClass }: { schoolClass: ChildClass | null }) {
         <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
           Not in a class yet.
         </Typography>
+
         {/* TODO: open the "join with a code" flow when classes are ready */}
         <Button
           size="small"
