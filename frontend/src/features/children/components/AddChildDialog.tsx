@@ -1,9 +1,6 @@
-import { useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import { useState } from 'react'
 
 import {
-  Avatar,
-  Box,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,11 +10,10 @@ import {
   Typography,
 } from '@mui/material'
 
-import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
-
 import AppButton from '@/components/AppButton'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import TextInput from '@/components/TextInput'
+import AppAvatar from '@/components/AppAvatar'
 
 interface AddChildDialogProps {
   open: boolean
@@ -26,7 +22,6 @@ interface AddChildDialogProps {
     first_name: string
     last_name: string
     birth_date: string
-    photo: File | null
   }) => void
 }
 
@@ -35,11 +30,6 @@ export default function AddChildDialog({
   onClose,
   onConfirm,
 }: AddChildDialogProps) {
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [birthDate, setBirthDate] = useState('')
@@ -52,36 +42,15 @@ export default function AddChildDialog({
   const lastNameError = submitted && !lastName.trim()
   const birthDateError = submitted && !birthDate
 
-  const handleClose = () => {
-    if (photoPreview) {
-      URL.revokeObjectURL(photoPreview)
-    }
+  const fullName = `${firstName} ${lastName}`.trim()
 
+  const handleClose = () => {
     setFirstName('')
     setLastName('')
     setBirthDate('')
-    setPhoto(null)
-    setPhotoPreview(null)
     setSubmitted(false)
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-
     onClose()
-  }
-
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-
-    if (!file) return
-
-    if (photoPreview) {
-      URL.revokeObjectURL(photoPreview)
-    }
-
-    setPhoto(file)
-    setPhotoPreview(URL.createObjectURL(file))
   }
 
   const handleConfirm = () => {
@@ -100,7 +69,6 @@ export default function AddChildDialog({
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       birth_date: birthDate,
-      photo,
     })
 
     handleClose()
@@ -112,48 +80,8 @@ export default function AddChildDialog({
 
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          {/* Child photo */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <Avatar
-              src={photoPreview ?? undefined}
-              sx={{
-                width: 64,
-                height: 64,
-                bgcolor: 'action.hover',
-                color: 'text.secondary',
-                flexShrink: 0,
-              }}
-            >
-              <PersonOutlineRoundedIcon fontSize="large" />
-            </Avatar>
-
-            <Box
-              sx={{
-                height: 64,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <AppButtonOutlined
-                label="Add photo (optional)"
-                onClick={() => fileInputRef.current?.click()}
-              />
-            </Box>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={handlePhotoChange}
-            />
-          </Box>
+          {/* Child avatar */}
+          <AppAvatar name={fullName || 'A'} size={64} randomColor={false} />
 
           {/* First name and last name */}
           <Stack direction="row" spacing={2}>
