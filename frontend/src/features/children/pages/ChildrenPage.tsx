@@ -6,16 +6,18 @@ import { type Child, useChildren } from '@/features/children/api'
 import { ChildCard } from '@/features/children/components/ChildCard'
 import RemoveChildDialog from '@/features/children/components/RemoveChildDialog.tsx'
 import { useState } from 'react'
-import AddChildDialog from "@/features/children/components/AddChildDialog.tsx";
+import AddChildDialog from '@/features/children/components/AddChildDialog.tsx'
+import EditChildDialog from "@/features/children/components/EditChildDialog.tsx";
 
 export function ChildrenPage() {
   const { data: children = [], isPending, isError } = useChildren()
 
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [childToRemove, setChildToRemove] = useState<Child | null>(null)
+  const [childToEdit, setChildToEdit] = useState<Child | null>(null)
 
   // TODO: open the add / edit / remove dialogs
-    // ADD
+  // ADD
   const handleAdd = () => {
     setIsAddOpen(true)
   }
@@ -25,7 +27,13 @@ export function ChildrenPage() {
   }
 
   // EDIT
-  const handleEdit = (_child: Child) => {}
+  const handleEdit = (child: Child) => {
+    setChildToEdit(child)
+  }
+
+  const handleCloseEdit = () => {
+    setChildToEdit(null)
+  }
 
   // REMOVE
   const handleRemove = (child: Child) => {
@@ -123,6 +131,16 @@ export function ChildrenPage() {
         open={isAddOpen}
         onClose={handleCloseAdd}
         onConfirm={handleCloseAdd}
+      />
+
+      <EditChildDialog
+        open={!!childToEdit}
+        child={childToEdit}
+        onClose={handleCloseEdit}
+        onConfirm={(updatedChild) => {
+          console.log(updatedChild)
+          handleCloseEdit()
+        }}
       />
     </>
   )
