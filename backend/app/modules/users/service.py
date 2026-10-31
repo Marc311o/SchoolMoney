@@ -4,16 +4,16 @@ import jwt
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import (
+from app.modules.accounts.enums import AccountType
+from app.modules.accounts.models import Account
+from app.modules.accounts.utils import generate_fake_iban
+from app.modules.auth.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
     hash_password,
     verify_password,
 )
-from app.modules.accounts.enums import AccountType
-from app.modules.accounts.models import Account
-from app.modules.accounts.utils import generate_fake_iban
 from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from app.modules.users.schemas import TokenRead, UserLogin, UserRegister

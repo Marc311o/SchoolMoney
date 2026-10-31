@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import decode_token
+from app.modules.auth.security import decode_token
 from app.modules.users.enums import UserStatus
 from app.modules.users.models import User
 from app.modules.users.service import get_user_by_id

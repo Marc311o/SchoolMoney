@@ -5,7 +5,7 @@ import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
 
-from app.core.config import settings
+from app.modules.auth.config import settings
 
 password_hasher = PasswordHash((Argon2Hasher(),))
 

@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401  (registers all tables on Base.metadata)
 from app.core.database import Base, SessionLocal
-from app.core.security import hash_password
 from app.modules.accounts.enums import AccountType, TransactionType
 from app.modules.accounts.models import (
     Account,
@@ -20,6 +19,7 @@ from app.modules.accounts.models import (
     Transaction,
 )
 from app.modules.accounts.utils import generate_fake_iban
+from app.modules.auth.security import hash_password
 from app.modules.chat.models import Chat, ChatParticipant, Message
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import MembershipStatus
