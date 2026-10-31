@@ -126,7 +126,7 @@ export default function AddChildDialog({
             size="small"
           />
 
-          <Typography color="text.secondary">
+          <Typography variant="caption" color="text.secondary">
             Added a child you removed earlier? The same name and birth date
             bring back their history.
           </Typography>
