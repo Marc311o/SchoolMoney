@@ -6,16 +6,28 @@ import { type Child, useChildren } from '@/features/children/api'
 import { ChildCard } from '@/features/children/components/ChildCard'
 import RemoveChildDialog from '@/features/children/components/RemoveChildDialog.tsx'
 import { useState } from 'react'
+import AddChildDialog from "@/features/children/components/AddChildDialog.tsx";
 
 export function ChildrenPage() {
   const { data: children = [], isPending, isError } = useChildren()
 
-  // TODO: open the add / edit / remove dialogs
-  const handleAdd = () => {}
-  const handleEdit = (_child: Child) => {}
-  
+  const [isAddOpen, setIsAddOpen] = useState(false)
   const [childToRemove, setChildToRemove] = useState<Child | null>(null)
 
+  // TODO: open the add / edit / remove dialogs
+    // ADD
+  const handleAdd = () => {
+    setIsAddOpen(true)
+  }
+
+  const handleCloseAdd = () => {
+    setIsAddOpen(false)
+  }
+
+  // EDIT
+  const handleEdit = (_child: Child) => {}
+
+  // REMOVE
   const handleRemove = (child: Child) => {
     setChildToRemove(child)
   }
@@ -105,6 +117,12 @@ export function ChildrenPage() {
         className={childToRemove?.school_class?.name ?? null}
         onClose={handleCloseRemove}
         onConfirm={handleCloseRemove}
+      />
+
+      <AddChildDialog
+        open={isAddOpen}
+        onClose={handleCloseAdd}
+        onConfirm={handleCloseAdd}
       />
     </>
   )
