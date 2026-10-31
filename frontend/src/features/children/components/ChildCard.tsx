@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography } from '@mui/material'
+import { Box, Button, Divider, Stack, Typography } from '@mui/material'
 
 import AppAvatar from '@/components/AppAvatar'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
@@ -32,7 +32,11 @@ export function ChildCard({ child, onEdit, onRemove }: ChildCardProps) {
           </Box>
         </Stack>
 
+        <Divider sx={{ borderColor: 'divider' }} />
+
         <ClassInfo schoolClass={child.school_class} />
+
+        <Divider sx={{ borderColor: 'divider' }} />
 
         <Stack direction="row-reverse" spacing={1} sx={{ mt: 'auto' }}>
           <Button
@@ -84,39 +88,32 @@ function ClassInfo({ schoolClass }: { schoolClass: ChildClass | null }) {
 
   return (
     <Stack
-      spacing={0.75}
+      direction="row"
       sx={{
-        p: 1.5,
-        // bgcolor: 'background.default',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        bgcolor: isMember ? 'transparent' : 'warning.light',
         borderRadius: 1,
+        p: 1.5,
       }}
     >
-      <Stack
-        direction="row"
-        spacing={4}
+      <Typography sx={{ fontWeight: 600, color: 'text.primary' }}>
+        Class {schoolClass.name}
+      </Typography>
+
+      <Typography
         sx={{
-          alignItems: 'center',
-          // justifyContent: 'space-between'
+          fontWeight: 600,
+          color: isMember ? 'primary.main' : 'warning.dark',
+          bgcolor: isMember ? 'transparent' : 'warning.light',
+          px: 1.5,
+          py: 0.5,
+          borderRadius: 1,
+          fontSize: 13,
         }}
       >
-        <Typography sx={{ fontWeight: 600 }}>
-          Class {schoolClass.name}
-        </Typography>
-
-        <Typography
-          sx={{
-            fontWeight: 600,
-            color: isMember ? 'primary.main' : 'warning.dark',
-          }}
-        >
-          {isMember ? 'Member' : 'Waiting'}
-        </Typography>
-      </Stack>
-      {!isMember && (
-        <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-          The treasurer has to approve the request.
-        </Typography>
-      )}
+        {isMember ? 'Member' : 'Waiting'}
+      </Typography>
     </Stack>
   )
 }
