@@ -1,5 +1,5 @@
 from collections import defaultdict
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -14,6 +14,7 @@ from app.modules.classrooms.schemas import (
     ClassMemberRead,
     ClassMemberWithParentRead,
     SchoolClassRead,
+    SchoolClassCreate,
 )
 from app.modules.users.models import User
 from app.modules.users.schemas import UserSummaryRead
@@ -128,3 +129,23 @@ def get_class(db: Session, user: User, class_id: UUID) -> ClassDetailRead:
             for membership, parent in rows
         ],
     )
+
+
+def create_class(
+        db: Session,
+        user: User,
+        payload: SchoolClassCreate,
+) -> SchoolClassRead:
+    """Create a class owned by the current user, who becomes its treasurer."""
+    school_class = SchoolClass(
+        id=uuid4(),
+        name=payload.name,
+        school_name=payload.school_name,
+        treasurer_id=user.id,
+    )
+
+    db.add(school_class)
+    db.commit()
+    db.refresh(school_class)
+
+    return SchoolClassRead.model_validate(school_class)
