@@ -13,8 +13,8 @@ from app.modules.classrooms.schemas import (
     ClassListItemRead,
     ClassMemberRead,
     ClassMemberWithParentRead,
-    SchoolClassRead,
     SchoolClassCreate,
+    SchoolClassRead,
 )
 from app.modules.users.models import User
 from app.modules.users.schemas import UserSummaryRead

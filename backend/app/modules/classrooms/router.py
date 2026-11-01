@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.classrooms import service
-from app.modules.classrooms.schemas import ClassDetailRead, ClassListItemRead, SchoolClassRead, SchoolClassCreate
+from app.modules.classrooms.schemas import (
+    ClassDetailRead,
+    ClassListItemRead,
+    SchoolClassCreate,
+    SchoolClassRead,
+)
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/classes", tags=["classes"])
