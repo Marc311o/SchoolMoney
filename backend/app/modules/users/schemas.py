@@ -16,9 +16,6 @@ from app.modules.users.enums import UserRole, UserStatus
 
 
 class UserUpdate(SchemaBase):
-    """Editable profile fields for the currently authenticated user."""
-
-    email: Email | None = None
     first_name: FirstName | None = None
     last_name: LastName | None = None
     avatar_url: AvatarUrl | None = None
@@ -26,7 +23,11 @@ class UserUpdate(SchemaBase):
     @model_validator(mode="before")
     @classmethod
     def non_nullable_profile_fields(cls, data: Any) -> Any:
-        return reject_explicit_nulls(data, ("email", "first_name", "last_name"))
+        return reject_explicit_nulls(data, ("first_name", "last_name"))
+
+
+class AdminUserEmailUpdate(SchemaBase):
+    email: Email
 
     @field_validator("email", mode="before")
     @classmethod

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.security import decode_token
-from app.modules.users.enums import UserStatus
+from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from app.modules.users.repository import get_user_by_id
 
@@ -51,3 +51,15 @@ def get_current_user(
         )
 
     return user
+
+
+def get_current_admin(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    return current_user
