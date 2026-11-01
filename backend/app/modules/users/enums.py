@@ -8,4 +8,5 @@ class UserRole(StrEnum):
 
 class UserStatus(StrEnum):
     ACTIVE = "ACTIVE"
+    PENDING_ACTIVATION = "PENDING_ACTIVATION"
     BLOCKED = "BLOCKED"
