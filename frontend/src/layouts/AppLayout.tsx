@@ -1,16 +1,17 @@
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import Sidebar from '@/components/Sidebar'
-import { useLogout } from '@/features/auth/api.ts'
+import { useLogout, useCurrentUser } from '@/features/auth/api.ts'
 
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useLogout()
+  const { data: user } = useCurrentUser()
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {' '}
       <Sidebar
-        user={{ firstName: 'Jan', lastName: 'Kowalski' }}
+        user={{ firstName: user.first_name, lastName: user.last_name }}
         activePath={location.pathname}
         onNavigate={navigate}
         onLogout={logout}
