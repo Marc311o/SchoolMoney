@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, get_current_admin
 from app.modules.auth.schemas import (
     AuthMeRead,
     PasswordChange,
@@ -12,15 +12,21 @@ from app.modules.auth.schemas import (
     TokenRead,
     UserLogin,
     UserRegister,
+    PasswordResetConfirm,
 )
 from app.modules.auth.service import (
     authenticate_user,
     change_user_password,
     refresh_user_tokens,
     register_user,
+    confirm_password_reset,
+    request_password_reset,
 )
 from app.modules.users.models import User
-from app.modules.users.schemas import UserRead
+from app.modules.users.schemas import UserRead,
+from uuid import UUID
+
+from fastapi.responses import HTMLResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -74,9 +80,40 @@ def get_me(user: CurrentUser) -> User:
     summary="Change my password",
 )
 def change_my_password(
-    data: PasswordChange,
-    user: CurrentUser,
-    db: DbSession,
+        data: PasswordChange,
+        user: CurrentUser,
+        db: DbSession,
 ) -> Response:
     change_user_password(db=db, user=user, data=data)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post(
+    "/users/{user_id}/password-reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Send a password reset email (admin only)",
+)
+def send_reset_link(
+    user_id: UUID,
+    admin: Annotated[User, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    request_password_reset(
+        db=db,
+        user_id=user_id,
+        admin=admin,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/password-reset/confirm",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Set a new password using a one-time reset token",
+)
+def reset_password(
+    data: PasswordResetConfirm,
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    confirm_password_reset(db=db, data=data)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+

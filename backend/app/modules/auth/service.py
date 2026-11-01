@@ -1,19 +1,32 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode, urlsplit
 from uuid import UUID, uuid4
 
 import jwt
 from fastapi import HTTPException, status
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.modules.accounts.enums import AccountType
 from app.modules.accounts.models import Account
 from app.modules.accounts.utils import generate_fake_iban
-from app.modules.auth.schemas import PasswordChange, TokenRead, UserLogin, UserRegister
+from app.modules.auth.config import settings
+from app.modules.auth.mailer import EmailDeliveryError, send_password_reset_email
+from app.modules.auth.models import PasswordResetToken
+from app.modules.auth.schemas import (
+    PasswordChange,
+    PasswordResetConfirm,
+    TokenRead,
+    UserLogin,
+    UserRegister,
+)
 from app.modules.auth.security import (
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
     hash_password,
+    hash_reset_token,
     verify_password,
 )
 from app.modules.users.enums import UserRole, UserStatus
@@ -74,11 +87,16 @@ def authenticate_user(db: Session, data: UserLogin) -> TokenRead:
         )
 
     return TokenRead(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
+        access_token=create_access_token(
+            user.id,
+            token_version=user.token_version,
+        ),
+        refresh_token=create_refresh_token(
+            user.id,
+            token_version=user.token_version,
+        ),
         token_type="bearer",
     )
-
 
 def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
     credentials_exception = HTTPException(
@@ -100,7 +118,7 @@ def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
 
     user = get_user_by_id(db, user_id=user_id)
 
-    if not user:
+    if user is None or payload.get("ver", 0) != user.token_version:
         raise credentials_exception
 
     if user.status == UserStatus.BLOCKED:
@@ -110,8 +128,14 @@ def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
         )
 
     return TokenRead(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
+        access_token=create_access_token(
+            user.id,
+            token_version=user.token_version,
+        ),
+        refresh_token=create_refresh_token(
+            user.id,
+            token_version=user.token_version,
+        ),
         token_type="bearer",
     )
 
@@ -121,6 +145,8 @@ def change_user_password(
     user: User,
     data: PasswordChange,
 ) -> None:
+    db.refresh(user, with_for_update=True)
+
     if not verify_password(data.current_password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -128,6 +154,128 @@ def change_user_password(
         )
 
     user.password_hash = hash_password(data.new_password)
+    user.token_version += 1
+    user.updated_at = datetime.now(UTC)
+
+    db.execute(
+        delete(PasswordResetToken).where(
+            PasswordResetToken.user_id == user.id
+        )
+    )
+
+    db.commit()
+
+def request_password_reset(
+    db: Session,
+    user_id: UUID,
+    admin: User,
+) -> None:
+    user = db.scalar(
+        select(User)
+        .where(User.id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    if user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=403,
+            detail="Account is blocked",
+        )
+
+    raw_token = create_password_reset_token()
+
+    db.execute(
+        delete(PasswordResetToken).where(
+            PasswordResetToken.user_id == user.id
+        )
+    )
+
+    db.add(
+        PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_reset_token(raw_token),
+            email=user.email,
+            token_version=user.token_version,
+            requested_by=admin.id,
+            expires_at=datetime.now(UTC)
+            + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES),
+        )
+    )
+
+    db.flush()
+
+    reset_url = (
+        urlsplit(str(settings.PASSWORD_RESET_URL))
+        ._replace(fragment=urlencode({"token": raw_token}))
+        .geturl()
+    )
+
+    try:
+        send_password_reset_email(user.email, reset_url)
+    except EmailDeliveryError:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Could not send reset email",
+        ) from None
+
+    db.commit()
+
+def confirm_password_reset(
+    db: Session,
+    data: PasswordResetConfirm,
+) -> None:
+    invalid_token = HTTPException(
+        status_code=400,
+        detail="Invalid or expired reset token",
+    )
+
+    token_hash = hash_reset_token(data.token)
+
+    reset = db.scalar(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash
+        )
+    )
+
+    if reset is None:
+        raise invalid_token
+
+    user = db.scalar(
+        select(User)
+        .where(User.id == reset.user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+    if user is None or user.status != UserStatus.ACTIVE:
+        raise invalid_token
+
+    consumed = db.scalar(
+        delete(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.email == user.email,
+            PasswordResetToken.token_version == user.token_version,
+            PasswordResetToken.expires_at > datetime.now(UTC),
+        )
+        .returning(PasswordResetToken.user_id)
+        .execution_options(synchronize_session="fetch")
+    )
+
+    if consumed is None:
+        raise invalid_token
+
+    user.password_hash = hash_password(data.new_password)
+    user.token_version += 1
     user.updated_at = datetime.now(UTC)
 
     db.commit()
