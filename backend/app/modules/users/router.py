@@ -1,70 +1,41 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.users.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user
+from app.modules.users import service
 from app.modules.users.models import User
-from app.modules.users.schemas import (
-    RefreshTokenRequest,
-    TokenRead,
-    UserLogin,
-    UserRead,
-    UserRegister,
-)
-from app.modules.users.service import (
-    authenticate_user,
-    refresh_user_tokens,
-    register_user,
-)
+from app.modules.users.schemas import UserRead, UserUpdate
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/users", tags=["users"])
 
-
-@router.post(
-    "/register",
-    response_model=UserRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new parent user",
-)
-def register(
-    data: UserRegister,
-    db: Annotated[Session, Depends(get_db)],
-) -> User:
-    return register_user(db=db, data=data)
-
-
-@router.post(
-    "/login",
-    response_model=TokenRead,
-    summary="Login and obtain access and refresh tokens",
-)
-def login(
-    data: UserLogin,
-    db: Annotated[Session, Depends(get_db)],
-) -> TokenRead:
-    return authenticate_user(db=db, data=data)
-
-
-@router.post(
-    "/refresh",
-    response_model=TokenRead,
-    summary="Refresh access and refresh tokens",
-)
-def refresh(
-    data: RefreshTokenRequest,
-    db: Annotated[Session, Depends(get_db)],
-) -> TokenRead:
-    return refresh_user_tokens(db=db, refresh_token=data.refresh_token)
+CurrentUser = Annotated[User, Depends(get_current_user)]
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 @router.get(
     "/me",
     response_model=UserRead,
-    summary="Get current authenticated user info",
+    summary="Get my profile",
 )
-def get_me(
-    current_user: Annotated[User, Depends(get_current_user)],
+def get_me(user: CurrentUser) -> User:
+    return user
+
+
+@router.patch(
+    "/me",
+    response_model=UserRead,
+    summary="Update my profile",
+)
+def update_me(
+    data: UserUpdate,
+    user: CurrentUser,
+    db: DbSession,
 ) -> User:
-    return current_user
+    return service.update_user_profile(
+        db=db,
+        user=user,
+        data=data,
+    )

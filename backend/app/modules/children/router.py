@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.modules.auth.dependencies import get_current_user
 from app.modules.children import service
 from app.modules.children.schemas import ChildCreate, ChildRead, ChildUpdate
-from app.modules.users.dependencies import get_current_user
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/children", tags=["children"])
