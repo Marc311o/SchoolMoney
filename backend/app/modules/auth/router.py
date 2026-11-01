@@ -23,7 +23,7 @@ from app.modules.auth.service import (
     request_password_reset,
 )
 from app.modules.users.models import User
-from app.modules.users.schemas import UserRead,
+from app.modules.users.schemas import UserRead
 from uuid import UUID
 
 from fastapi.responses import HTMLResponse
