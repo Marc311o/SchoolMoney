@@ -1,16 +1,11 @@
-// import { Outlet } from 'react-router'
-//
-// export function AppLayout() {
-//   return <Outlet />
-// }
-
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import Sidebar from '@/components/Sidebar'
+import { useLogout } from '@/features/auth/api.ts'
 
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-
+  const logout = useLogout()
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {' '}
@@ -18,7 +13,7 @@ export function AppLayout() {
         user={{ firstName: 'Jan', lastName: 'Kowalski' }}
         activePath={location.pathname}
         onNavigate={navigate}
-        onLogout={() => navigate('/login')}
+        onLogout={logout}
       />
       <main
         style={{
