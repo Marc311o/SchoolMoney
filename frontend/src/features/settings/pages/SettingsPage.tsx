@@ -349,7 +349,6 @@ function SettingsContent({ user }: { user: User }) {
                     </Typography>
                   </Stack>
                 </Box>
-                
               </Stack>
             </Stack>
           </WhiteCard>
