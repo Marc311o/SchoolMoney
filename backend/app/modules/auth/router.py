@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_admin, get_current_user
 from app.modules.auth.schemas import (
+    AccountActivationConfirm,
     AuthMeRead,
     PasswordChange,
     PasswordResetConfirm,
@@ -16,6 +17,7 @@ from app.modules.auth.schemas import (
     UserRegister,
 )
 from app.modules.auth.service import (
+    activate_user_account,
     authenticate_user,
     change_user_password,
     confirm_password_reset,
@@ -40,6 +42,16 @@ DbSession = Annotated[Session, Depends(get_db)]
 )
 def register(data: UserRegister, db: DbSession) -> User:
     return register_user(db=db, data=data)
+
+
+@router.post(
+    "/activate",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Activate account using one-time token from email",
+)
+def activate(data: AccountActivationConfirm, db: DbSession) -> Response:
+    activate_user_account(db=db, data=data)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
@@ -94,7 +106,7 @@ def change_my_password(
 def send_reset_link(
     user_id: UUID,
     admin: Annotated[User, Depends(get_current_admin)],
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> Response:
     request_password_reset(
         db=db,
@@ -111,7 +123,7 @@ def send_reset_link(
 )
 def reset_password(
     data: PasswordResetConfirm,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> Response:
     confirm_password_reset(db=db, data=data)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

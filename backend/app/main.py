@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401
+import app.modules.auth.models  # noqa: F401
 from app.core.database import get_db
 from app.modules.auth.router import router as auth_router
 from app.modules.children.router import router as children_router

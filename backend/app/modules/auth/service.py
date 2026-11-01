@@ -11,9 +11,14 @@ from app.modules.accounts.enums import AccountType
 from app.modules.accounts.models import Account
 from app.modules.accounts.utils import generate_fake_iban
 from app.modules.auth.config import settings
-from app.modules.auth.mailer import EmailDeliveryError, send_password_reset_email
-from app.modules.auth.models import PasswordResetToken
+from app.modules.auth.mailer import (
+    EmailDeliveryError,
+    send_account_activation_email,
+    send_password_reset_email,
+)
+from app.modules.auth.models import AccountActivationToken, PasswordResetToken
 from app.modules.auth.schemas import (
+    AccountActivationConfirm,
     PasswordChange,
     PasswordResetConfirm,
     TokenRead,
@@ -51,7 +56,7 @@ def register_user(db: Session, data: UserRegister) -> User:
         last_name=data.last_name,
         avatar_url=str(data.avatar_url) if data.avatar_url else None,
         role=UserRole.PARENT,
-        status=UserStatus.ACTIVE,
+        status=UserStatus.PENDING_ACTIVATION,
     )
 
     db.add(user)
@@ -65,10 +70,84 @@ def register_user(db: Session, data: UserRegister) -> User:
     )
     db.add(account)
 
+    raw_token = create_password_reset_token()
+    token_hash = hash_reset_token(raw_token)
+
+    db.add(
+        AccountActivationToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            email=user.email,
+            expires_at=datetime.now(UTC)
+            + timedelta(minutes=settings.ACCOUNT_ACTIVATION_EXPIRE_MINUTES),
+        )
+    )
+    db.flush()
+
+    activation_url = (
+        urlsplit(str(settings.ACCOUNT_ACTIVATION_URL))
+        ._replace(fragment=urlencode({"token": raw_token}))
+        .geturl()
+    )
+
+    try:
+        send_account_activation_email(user.email, activation_url)
+    except EmailDeliveryError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not send activation email",
+        ) from None
+
     db.commit()
     db.refresh(user)
 
     return user
+
+
+def activate_user_account(db: Session, data: AccountActivationConfirm) -> None:
+    invalid_token = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired activation token",
+    )
+
+    token_hash = hash_reset_token(data.token)
+
+    activation_record = db.scalar(
+        select(AccountActivationToken).where(AccountActivationToken.token_hash == token_hash)
+    )
+
+    if activation_record is None:
+        raise invalid_token
+
+    user = db.scalar(
+        select(User)
+        .where(User.id == activation_record.user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+    if user is None:
+        raise invalid_token
+
+    consumed = db.scalar(
+        delete(AccountActivationToken)
+        .where(
+            AccountActivationToken.user_id == user.id,
+            AccountActivationToken.token_hash == token_hash,
+            AccountActivationToken.expires_at > datetime.now(UTC),
+        )
+        .returning(AccountActivationToken.user_id)
+        .execution_options(synchronize_session="fetch")
+    )
+
+    if consumed is None:
+        raise invalid_token
+
+    user.status = UserStatus.ACTIVE
+    user.updated_at = datetime.now(UTC)
+
+    db.commit()
 
 
 def authenticate_user(db: Session, data: UserLogin) -> TokenRead:
@@ -78,6 +157,12 @@ def authenticate_user(db: Session, data: UserLogin) -> TokenRead:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
+        )
+
+    if user.status == UserStatus.PENDING_ACTIVATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is not activated",
         )
 
     if user.status == UserStatus.BLOCKED:
@@ -121,6 +206,12 @@ def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
 
     if user is None or payload.get("ver", 0) != user.token_version:
         raise credentials_exception
+
+    if user.status == UserStatus.PENDING_ACTIVATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is not activated",
+        )
 
     if user.status == UserStatus.BLOCKED:
         raise HTTPException(
@@ -177,13 +268,13 @@ def request_password_reset(
 
     if user is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
 
     if user.status != UserStatus.ACTIVE:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is blocked",
         )
 
@@ -216,7 +307,7 @@ def request_password_reset(
     except EmailDeliveryError:
         db.rollback()
         raise HTTPException(
-            status_code=503,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Could not send reset email",
         ) from None
 
@@ -228,7 +319,7 @@ def confirm_password_reset(
     data: PasswordResetConfirm,
 ) -> None:
     invalid_token = HTTPException(
-        status_code=400,
+        status_code=status.HTTP_400_BAD_REQUEST,
         detail="Invalid or expired reset token",
     )
 
