@@ -3,8 +3,8 @@ from uuid import UUID
 
 from sqlalchemy import (
     DateTime,
-    String,
     Integer,
+    String,
     Uuid,
     func,
     text,

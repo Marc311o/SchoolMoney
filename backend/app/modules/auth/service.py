@@ -98,6 +98,7 @@ def authenticate_user(db: Session, data: UserLogin) -> TokenRead:
         token_type="bearer",
     )
 
+
 def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -157,13 +158,10 @@ def change_user_password(
     user.token_version += 1
     user.updated_at = datetime.now(UTC)
 
-    db.execute(
-        delete(PasswordResetToken).where(
-            PasswordResetToken.user_id == user.id
-        )
-    )
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
 
     db.commit()
+
 
 def request_password_reset(
     db: Session,
@@ -191,11 +189,7 @@ def request_password_reset(
 
     raw_token = create_password_reset_token()
 
-    db.execute(
-        delete(PasswordResetToken).where(
-            PasswordResetToken.user_id == user.id
-        )
-    )
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
 
     db.add(
         PasswordResetToken(
@@ -228,6 +222,7 @@ def request_password_reset(
 
     db.commit()
 
+
 def confirm_password_reset(
     db: Session,
     data: PasswordResetConfirm,
@@ -239,11 +234,7 @@ def confirm_password_reset(
 
     token_hash = hash_reset_token(data.token)
 
-    reset = db.scalar(
-        select(PasswordResetToken).where(
-            PasswordResetToken.token_hash == token_hash
-        )
-    )
+    reset = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash))
 
     if reset is None:
         raise invalid_token

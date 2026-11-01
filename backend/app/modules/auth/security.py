@@ -1,4 +1,6 @@
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
+from secrets import token_urlsafe
 from typing import Any
 
 import jwt
@@ -6,8 +8,6 @@ from pwdlib import PasswordHash
 from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.modules.auth.config import settings
-from hashlib import sha256
-from secrets import token_urlsafe
 
 password_hasher = PasswordHash((Argon2Hasher(),))
 

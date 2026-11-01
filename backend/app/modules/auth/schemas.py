@@ -62,6 +62,7 @@ class AuthMeRead(SchemaBase):
     role: UserRole
     status: UserStatus
 
+
 class PasswordResetConfirm(SchemaBase):
     token: Annotated[
         str,
