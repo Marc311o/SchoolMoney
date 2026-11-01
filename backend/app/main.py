@@ -10,6 +10,7 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.modules.auth.router import router as auth_router
 from app.modules.children.router import router as children_router
+from app.modules.classrooms.router import router as classes_router
 from app.modules.users.router import router as users_router
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ app = FastAPI(title="SchoolMoney")
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(children_router, prefix="/api")
+app.include_router(classes_router, prefix="/api")
 
 
 @app.get("/api/health")

@@ -20,8 +20,31 @@ from app.modules.fundraisers.enums import FundraiserStatus
 from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, FundraiserPayment
 
 
-def make_class(db: Session, treasurer_id: UUID, name: str = "1A") -> SchoolClass:
-    school_class = SchoolClass(id=uuid4(), name=name, treasurer_id=treasurer_id)
+def make_child(
+    db: Session,
+    parent_id: UUID,
+    first_name: str = "Ola",
+    last_name: str = "Kot",
+    birth_date: date = date(2018, 5, 4),
+) -> Child:
+    child = Child(
+        id=uuid4(),
+        parent_id=parent_id,
+        first_name=first_name,
+        last_name=last_name,
+        birth_date=birth_date,
+    )
+    db.add(child)
+    db.flush()
+    return child
+
+
+def make_class(
+    db: Session, treasurer_id: UUID, name: str = "1A", school_name: str | None = None
+) -> SchoolClass:
+    school_class = SchoolClass(
+        id=uuid4(), name=name, school_name=school_name, treasurer_id=treasurer_id
+    )
     db.add(school_class)
     db.flush()
     return school_class
@@ -34,7 +57,11 @@ def make_membership(
     status: MembershipStatus = MembershipStatus.ACTIVE,
 ) -> ChildClassMembership:
     membership = ChildClassMembership(
-        id=uuid4(), child_id=child_id, class_id=class_id, status=status
+        id=uuid4(),
+        child_id=child_id,
+        class_id=class_id,
+        status=status,
+        joined_at=datetime.now(UTC) if status == MembershipStatus.ACTIVE else None,
     )
     db.add(membership)
     db.flush()

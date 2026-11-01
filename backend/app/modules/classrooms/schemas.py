@@ -6,7 +6,8 @@ from pydantic import StringConstraints, field_validator, model_validator
 
 from app.common.schemas import SchemaBase
 from app.modules.children.schemas import ChildSummaryRead
-from app.modules.classrooms.enums import MembershipStatus
+from app.modules.classrooms.enums import ClassRole, MembershipStatus
+from app.modules.users.schemas import UserSummaryRead
 
 ClassName = Annotated[
     str,
@@ -120,3 +121,22 @@ class ChildClassMembershipRead(SchemaBase):
 
 class ClassMemberRead(ChildClassMembershipRead):
     child: ChildSummaryRead
+
+
+class ClassMemberWithParentRead(ClassMemberRead):
+    """A child on the class list, with the parent to contact."""
+
+    parent: UserSummaryRead
+
+
+class ClassListItemRead(SchoolClassRead):
+    my_role: ClassRole
+    treasurer: UserSummaryRead
+    my_children: list[ClassMemberRead]
+    children_count: int
+
+
+class ClassDetailRead(SchoolClassRead):
+    my_role: ClassRole
+    treasurer: UserSummaryRead
+    children: list[ClassMemberWithParentRead]

@@ -6,3 +6,8 @@ class MembershipStatus(StrEnum):
     ACTIVE = "ACTIVE"
     REJECTED = "REJECTED"
     LEFT = "LEFT"
+
+
+class ClassRole(StrEnum):
+    TREASURER = "TREASURER"
+    PARENT = "PARENT"
