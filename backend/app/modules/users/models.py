@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import (
     DateTime,
     String,
+    Integer,
     Uuid,
     func,
     text,
@@ -78,6 +79,13 @@ class User(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+
+    token_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
     )
 
     children = relationship(
