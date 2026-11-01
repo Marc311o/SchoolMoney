@@ -66,3 +66,57 @@ def send_password_reset_email(
             getattr(exc, "smtp_code", None),
         )
         raise EmailDeliveryError("SMTP delivery failed") from exc
+
+
+def send_account_activation_email(
+    recipient: str,
+    activation_url: str,
+) -> None:
+    message = EmailMessage()
+    message["Subject"] = "SchoolMoney: activate your account"
+    message["From"] = str(settings.SMTP_FROM)
+    message["To"] = recipient
+
+    message.set_content(
+        "SchoolMoney: Welcome!\n\n"
+        f"Activate your account by clicking the link: {activation_url}\n\n"
+        f"Link is valid for {settings.ACCOUNT_ACTIVATION_EXPIRE_MINUTES} minutes.\n"
+    )
+
+    try:
+        if settings.SMTP_USE_SSL:
+            connection = smtplib.SMTP_SSL(
+                settings.SMTP_HOST,
+                settings.SMTP_PORT,
+                timeout=10,
+                context=ssl.create_default_context(),
+            )
+        else:
+            connection = smtplib.SMTP(
+                settings.SMTP_HOST,
+                settings.SMTP_PORT,
+                timeout=10,
+            )
+
+        with connection as smtp:
+            if settings.SMTP_USE_TLS:
+                smtp.starttls(context=ssl.create_default_context())
+
+            if settings.SMTP_USERNAME:
+                smtp.login(
+                    settings.SMTP_USERNAME,
+                    settings.SMTP_PASSWORD.get_secret_value(),
+                )
+
+            refused = smtp.send_message(message)
+
+            if refused:
+                raise EmailDeliveryError("SMTP rejected the recipient")
+
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.error(
+            "SMTP delivery failed: %s (code=%s)",
+            type(exc).__name__,
+            getattr(exc, "smtp_code", None),
+        )
+        raise EmailDeliveryError("SMTP delivery failed") from exc
