@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import {
   Dialog,
@@ -50,30 +50,27 @@ function serverErrors(error: ApiError): ChildErrors {
   }
 }
 
-export default function EditChildDialog({
-  open,
+export default function EditChildDialog(props: EditChildDialogProps) {
+  if (!props.open || !props.child) {
+    return null
+  }
+
+  return <EditChildForm key={props.child.id} {...props} />
+}
+
+function EditChildForm({
   child,
   onClose,
   onConfirm,
   loading = false,
   error,
 }: EditChildDialogProps) {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-
+  const [firstName, setFirstName] = useState(child?.first_name ?? '')
+  const [lastName, setLastName] = useState(child?.last_name ?? '')
+  const [birthDate, setBirthDate] = useState(child?.birth_date ?? '')
   const [submitted, setSubmitted] = useState(false)
 
-  const today = new Date().toLocaleDateString('en-CA')
-
-  useEffect(() => {
-    if (open && child) {
-      setFirstName(child.first_name ?? '')
-      setLastName(child.last_name ?? '')
-      setBirthDate(child.birth_date ?? '')
-      setSubmitted(false)
-    }
-  }, [open, child])
+  const [today] = useState(() => new Date().toLocaleDateString('en-CA'))
 
   const apiErrors: ChildErrors = error ? serverErrors(error) : {}
 
@@ -98,11 +95,6 @@ export default function EditChildDialog({
 
   const handleClose = () => {
     if (loading) return
-
-    setFirstName('')
-    setLastName('')
-    setBirthDate('')
-    setSubmitted(false)
 
     onClose()
   }
@@ -144,7 +136,7 @@ export default function EditChildDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
+    <Dialog open fullWidth maxWidth="xs" onClose={handleClose}>
       <DialogTitle sx={{ fontWeight: 700 }}>Edit child</DialogTitle>
 
       <DialogContent>

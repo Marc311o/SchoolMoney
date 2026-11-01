@@ -61,7 +61,7 @@ export default function AddChildDialog({
   const [birthDate, setBirthDate] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  const today = new Date().toLocaleDateString('en-CA')
+  const [today] = useState(() => new Date().toLocaleDateString('en-CA'))
 
   const apiErrors = error ? serverErrors(error) : {}
 
