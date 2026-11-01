@@ -79,7 +79,7 @@ def register_user(db: Session, data: UserRegister) -> User:
             token_hash=token_hash,
             email=user.email,
             expires_at=datetime.now(UTC)
-            + timedelta(hours=settings.ACCOUNT_ACTIVATION_EXPIRE_HOURS),
+            + timedelta(minutes=settings.ACCOUNT_ACTIVATION_EXPIRE_MINUTES),
         )
     )
     db.flush()
