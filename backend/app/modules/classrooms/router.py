@@ -47,8 +47,8 @@ def get_class(class_id: UUID, user: CurrentUser, db: DbSession) -> ClassDetailRe
     summary="Create a class (creator becomes treasurer)",
 )
 def create_class(
-        payload: SchoolClassCreate,
-        user: CurrentUser,
-        db: DbSession,
+    payload: SchoolClassCreate,
+    user: CurrentUser,
+    db: DbSession,
 ) -> SchoolClassRead:
     return service.create_class(db, user, payload)

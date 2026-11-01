@@ -132,9 +132,9 @@ def get_class(db: Session, user: User, class_id: UUID) -> ClassDetailRead:
 
 
 def create_class(
-        db: Session,
-        user: User,
-        payload: SchoolClassCreate,
+    db: Session,
+    user: User,
+    payload: SchoolClassCreate,
 ) -> SchoolClassRead:
     """Create a class owned by the current user, who becomes its treasurer."""
     school_class = SchoolClass(

@@ -38,12 +38,12 @@ class School:
         self.zosia = self.add_child(self.parent_id, "Zosia", "Nowak", MembershipStatus.ACTIVE)
 
     def add_child(
-            self,
-            parent_id: UUID,
-            first_name: str,
-            last_name: str = "Kot",
-            status: MembershipStatus = MembershipStatus.ACTIVE,
-            school_class: SchoolClass | None = None,
+        self,
+        parent_id: UUID,
+        first_name: str,
+        last_name: str = "Kot",
+        status: MembershipStatus = MembershipStatus.ACTIVE,
+        school_class: SchoolClass | None = None,
     ):
         child = make_child(self.db, parent_id, first_name, last_name)
         make_membership(self.db, child.id, (school_class or self.school_class).id, status)
@@ -107,7 +107,7 @@ def test_parent_sees_class_of_their_child(client: TestClient, school: School):
 
 
 def test_parent_with_pending_child_sees_class_as_waiting(
-        client: TestClient, school: School, db: Session
+    client: TestClient, school: School, db: Session
 ):
     school.add_child(user_id(db, "stranger@example.com"), "Jan", status=MembershipStatus.PENDING)
 
@@ -122,7 +122,7 @@ def test_stranger_sees_no_classes(client: TestClient, school: School):
 
 @pytest.mark.parametrize("status", [MembershipStatus.LEFT, MembershipStatus.REJECTED])
 def test_finished_membership_hides_class(
-        client: TestClient, school: School, db: Session, status: MembershipStatus
+    client: TestClient, school: School, db: Session, status: MembershipStatus
 ):
     school.add_child(user_id(db, "stranger@example.com"), "Jan", status=status)
     assert get_classes(client, school.stranger) == []
@@ -190,7 +190,7 @@ def test_only_treasurer_sees_pending_children(client: TestClient, school: School
 
 
 def test_finished_and_removed_children_are_not_listed(
-        client: TestClient, school: School, db: Session
+    client: TestClient, school: School, db: Session
 ):
     stranger_id = user_id(db, "stranger@example.com")
     school.add_child(stranger_id, "Left", status=MembershipStatus.LEFT)
@@ -209,7 +209,7 @@ def test_finished_and_removed_children_are_not_listed(
     ids=["no child", "pending", "left", "rejected"],
 )
 def test_class_details_are_hidden_from_non_members(
-        client: TestClient, school: School, db: Session, status
+    client: TestClient, school: School, db: Session, status
 ):
     if status is not None:
         school.add_child(user_id(db, "stranger@example.com"), "Jan", status=status)
@@ -246,9 +246,9 @@ def test_requires_login_to_create_class(client: TestClient):
 
 
 def test_treasurer_can_create_class(
-        client: TestClient,
-        school: School,
-        db: Session,
+    client: TestClient,
+    school: School,
+    db: Session,
 ):
     response = client.post(
         "/api/classes",
@@ -275,8 +275,8 @@ def test_treasurer_can_create_class(
 
 
 def test_creator_automatically_sees_class_as_treasurer(
-        client: TestClient,
-        school: School,
+    client: TestClient,
+    school: School,
 ):
     response = client.post(
         "/api/classes",
@@ -299,8 +299,8 @@ def test_creator_automatically_sees_class_as_treasurer(
 
 
 def test_class_can_be_created_without_school_name(
-        client: TestClient,
-        school: School,
+    client: TestClient,
+    school: School,
 ):
     response = client.post(
         "/api/classes",
@@ -325,9 +325,9 @@ def test_class_can_be_created_without_school_name(
     ],
 )
 def test_create_class_validation(
-        client: TestClient,
-        school: School,
-        payload: dict,
+    client: TestClient,
+    school: School,
+    payload: dict,
 ):
     response = client.post(
         "/api/classes",
@@ -339,9 +339,9 @@ def test_create_class_validation(
 
 
 def test_create_class_does_not_accept_treasurer_id_from_client(
-        client: TestClient,
-        school: School,
-        db: Session,
+    client: TestClient,
+    school: School,
+    db: Session,
 ):
     stranger_id = user_id(db, "stranger@example.com")
 
