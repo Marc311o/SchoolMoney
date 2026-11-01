@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router'
 
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { ActivateAccountPage } from '@/pages/ActivateAccountPage'
 import { ChildrenPage } from '@/features/children/pages/ChildrenPage'
 import { ClassesPage } from '@/features/classes/pages/ClassesPage'
 import { ChatPage } from '@/features/chat/pages/ChatPage'
@@ -16,7 +17,7 @@ import { GuestOnly } from '@/features/auth/components/GuestOnly.tsx'
 import { RequireAuth } from '@/features/auth/components/RequireAuth.tsx'
 
 export const router = createBrowserRouter([
-  // Public: not signed in
+  // Public: auth layout
   {
     element: <AuthLayout />,
     children: [
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
           { path: '/register', element: <RegisterPage /> },
         ],
       },
+      { path: '/activate-account', element: <ActivateAccountPage /> },
     ],
   },
 
