@@ -41,7 +41,7 @@ def get_current_user(
 
     user = get_user_by_id(db, user_id=user_id)
 
-    if user is None:
+    if user is None or payload.get("ver", 0) != user.token_version:
         raise credentials_exception
 
     if user.status == UserStatus.BLOCKED:

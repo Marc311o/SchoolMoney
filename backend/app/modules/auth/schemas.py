@@ -61,3 +61,14 @@ class AuthMeRead(SchemaBase):
     id: UUID
     role: UserRole
     status: UserStatus
+
+class PasswordResetConfirm(SchemaBase):
+    token: Annotated[
+        str,
+        Field(
+            min_length=43,
+            max_length=43,
+            pattern=r"^[A-Za-z0-9_-]{43}$",
+        ),
+    ]
+    new_password: Password
