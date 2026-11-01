@@ -24,12 +24,12 @@ export type RegisterRequest = LoginRequest & {
   last_name: string
 }
 
-export const currentUserKey = ['auth', 'me'] as const
+export const currentUserKey = ['users', 'me'] as const
 
 export function useCurrentUser() {
   return useQuery({
     queryKey: currentUserKey,
-    queryFn: () => api.get<User>('/auth/me'),
+    queryFn: () => api.get<User>('/users/me'),
     enabled: tokenStorage.getAccess() !== null,
     staleTime: 5 * 60 * 1000,
     retry: false,

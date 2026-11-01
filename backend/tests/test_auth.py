@@ -128,7 +128,8 @@ def test_refresh_token_success(client: TestClient):
 
     me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert me.status_code == 200
-    assert me.json()["email"] == "refresh.test@example.com"
+    assert set(me.json()) == {"id", "role", "status"}
+    assert me.json()["role"] == UserRole.PARENT.value
 
 
 def test_refresh_token_invalid(client: TestClient):
@@ -161,12 +162,11 @@ def test_refresh_token_blocked_user(client: TestClient, db: Session):
 
 def test_get_me_success(client: TestClient, parent):
     response = client.get("/api/auth/me", headers=parent)
-    assert response.status_code == 200
 
-    data = response.json()
-    assert data["email"] == "parent@example.com"
-    assert data["first_name"] == "Anna"
-    assert data["last_name"] == "Kot"
+    assert response.status_code == 200
+    assert set(response.json()) == {"id", "role", "status"}
+    assert response.json()["role"] == UserRole.PARENT.value
+    assert response.json()["status"] == UserStatus.ACTIVE.value
 
 
 @pytest.mark.parametrize(
@@ -176,3 +176,37 @@ def test_get_me_success(client: TestClient, parent):
 )
 def test_get_me_unauthorized(client: TestClient, headers):
     assert client.get("/api/auth/me", headers=headers).status_code == 401
+
+
+def test_change_password(client: TestClient, parent):
+    new_password = "NoweHaslo123!"
+
+    response = client.patch(
+        "/api/auth/password",
+        headers=parent,
+        json={
+            "current_password": PASSWORD,
+            "new_password": new_password,
+        },
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    old_login = client.post(
+        "/api/auth/login",
+        json={
+            "email": "parent@example.com",
+            "password": PASSWORD,
+        },
+    )
+    assert old_login.status_code == 401
+
+    new_login = client.post(
+        "/api/auth/login",
+        json={
+            "email": "parent@example.com",
+            "password": new_password,
+        },
+    )
+    assert new_login.status_code == 200

@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Annotated, Any, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 
 
 class SchemaBase(BaseModel):
@@ -10,6 +10,8 @@ class SchemaBase(BaseModel):
         extra="forbid",
     )
 
+
+Email = Annotated[EmailStr, Field(max_length=255)]
 
 FirstName = Annotated[
     str,
