@@ -11,6 +11,9 @@ class AuthSettings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = Field(default=30, ge=1, le=60)
     PASSWORD_RESET_URL: HttpUrl = "http://localhost:5173/reset-password"
 
+    ACCOUNT_ACTIVATION_EXPIRE_MINUTES: int = Field(default=30, ge=1, le=60)
+    ACCOUNT_ACTIVATION_URL: HttpUrl = "http://localhost:5173/activate-account"
+
     SMTP_HOST: str = "localhost"
     SMTP_PORT: int = Field(default=465, ge=1, le=65535)
     SMTP_FROM: EmailStr = "no-reply@example.com"
@@ -19,16 +22,16 @@ class AuthSettings(BaseSettings):
     SMTP_USE_TLS: bool = False
     SMTP_USE_SSL: bool = True
 
-    @field_validator("PASSWORD_RESET_URL")
+    @field_validator("PASSWORD_RESET_URL", "ACCOUNT_ACTIVATION_URL")
     @classmethod
-    def validate_reset_url(cls, value: HttpUrl) -> HttpUrl:
+    def validate_action_url(cls, value: HttpUrl) -> HttpUrl:
         if value.query or value.fragment or value.username or value.password:
-            raise ValueError("PASSWORD_RESET_URL must not contain credentials, query or fragment")
+            raise ValueError("URL must not contain credentials, query or fragment")
 
         local_hosts = {"localhost", "127.0.0.1", "[::1]", "::1"}
 
         if value.scheme != "https" and value.host not in local_hosts:
-            raise ValueError("Public password reset URLs must use HTTPS")
+            raise ValueError("Public URLs must use HTTPS")
 
         return value
 

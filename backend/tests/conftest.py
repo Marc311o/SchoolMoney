@@ -12,16 +12,19 @@ Where things live
 """
 
 from collections.abc import Callable, Iterator
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import Base, get_db
 from app.main import app
+from app.modules.users.enums import UserStatus
+from app.modules.users.models import User
 
 TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"
 TEST_DB_URL = make_url(settings.DATABASE_URL).set(database=TEST_DB_NAME)
@@ -96,17 +99,30 @@ AuthHeaders = Callable[[str], dict[str, str]]
 
 
 @pytest.fixture
-def auth_headers(client: TestClient) -> AuthHeaders:
-    """Register a parent with the given email and return their Authorization header.
+def auth_headers(client: TestClient, db: Session) -> AuthHeaders:
+    """Register a parent with the given email, activate them, and return their Authorization header.
 
     Usage: headers = auth_headers("anna@example.com")
     """
 
     def _auth_headers(email: str) -> dict[str, str]:
-        client.post(
-            "/api/auth/register",
-            json={"email": email, "password": PASSWORD, "first_name": "Anna", "last_name": "Kot"},
-        )
+        with patch("app.modules.auth.service.send_account_activation_email"):
+            client.post(
+                "/api/auth/register",
+                json={
+                    "email": email,
+                    "password": PASSWORD,
+                    "first_name": "Anna",
+                    "last_name": "Kot",
+                },
+            )
+
+        # Activate user so login does not fail with 403 Forbidden
+        user = db.scalars(select(User).where(User.email == email)).first()
+        if user:
+            user.status = UserStatus.ACTIVE
+            db.commit()
+
         tokens = client.post("/api/auth/login", json={"email": email, "password": PASSWORD}).json()
         return {"Authorization": f"Bearer {tokens['access_token']}"}
 

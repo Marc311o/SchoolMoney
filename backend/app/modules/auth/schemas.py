@@ -73,3 +73,14 @@ class PasswordResetConfirm(SchemaBase):
         ),
     ]
     new_password: Password
+
+
+class AccountActivationConfirm(SchemaBase):
+    token: Annotated[
+        str,
+        Field(
+            min_length=32,
+            max_length=64,
+            pattern=r"^[A-Za-z0-9_-]+$",
+        ),
+    ]
