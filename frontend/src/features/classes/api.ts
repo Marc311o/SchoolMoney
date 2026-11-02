@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { MembershipStatus } from '@/features/children/api'
 import { api, ApiError } from '@/lib/api'
@@ -48,6 +48,13 @@ type SchoolClassBase = {
   treasurer: UserSummary
 }
 
+export type SchoolClassCreate = {
+  name: string
+  school_name?: string | null
+  school_year?: string | null
+  append_school_year: boolean
+}
+
 /** GET /classes */
 export type ClassListItem = SchoolClassBase & {
   /** My children in this class: ACTIVE or PENDING */
@@ -89,6 +96,25 @@ export function useClass(id: string) {
     queryFn: () => api.get<ClassDetail>(`/classes/${id}`),
     // 404 = no such class or no access: asking again will not change that
     retry: (failureCount, error) => !isClassNotFound(error) && failureCount < 1,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
+
+export function useCreateClass() {
+  const queryClient = useQueryClient()
+
+  return useMutation<ClassListItem, ApiError, SchoolClassCreate>({
+    mutationFn: (payload) =>
+      api.post<ClassListItem>('/classes', payload),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: classesKeys.list(),
+      })
+    },
   })
 }
 

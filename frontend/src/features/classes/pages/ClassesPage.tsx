@@ -8,11 +8,16 @@ import AppButton from '@/components/AppButton'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import EmptyState from '@/components/EmptyState'
 import PageHeader from '@/components/PageHeader'
-import { useClasses } from '@/features/classes/api'
+import {
+  type SchoolClassCreate,
+  useClasses,
+  useCreateClass,
+} from '@/features/classes/api'
 import { ClassCard } from '@/features/classes/components/ClassCard'
 import SelectChildToJoinDialog from '@/features/classes/components/SelectChildToJoinDialog.tsx'
 import JoinClassDialog from '@/features/children/components/JoinClassDialog.tsx'
 import NoAvailableChildrenDialog from '@/features/classes/components/NoAvailableChildrenDialog'
+import CreateClassDialog from '@/features/classes/components/CreateClassDialog'
 
 export function ClassesPage() {
   const { data: classes = [], isPending, isError } = useClasses()
@@ -24,6 +29,9 @@ export function ClassesPage() {
 
   const [isSelectChildOpen, setIsSelectChildOpen] = useState(false)
   const [childToJoin, setChildToJoin] = useState<Child | null>(null)
+
+    const [isCreateClassOpen, setIsCreateClassOpen] = useState(false)
+    const createClass = useCreateClass()
 
   // Children who do not belong to any class
   const availableChildren = children.filter(
@@ -81,6 +89,15 @@ export function ClassesPage() {
     navigate('/children')
   }
 
+  const handleCreateClass = (payload: SchoolClassCreate) => {
+      createClass.mutate(payload, {
+        onSuccess: () => {
+          setIsCreateClassOpen(false)
+          createClass.reset()
+        },
+      })
+    }
+
   return (
     <Stack spacing={4} sx={{ p: '1em' }}>
       <PageHeader
@@ -93,7 +110,13 @@ export function ClassesPage() {
                 label="Join with a code"
                 onClick={handleOpenJoin}
               />
-              <AppButton label="New class" />
+              <AppButton
+                label="New class"
+                onClick={() => {
+                  createClass.reset()
+                  setIsCreateClassOpen(true)
+                }}
+              />
             </>
           )
         }
@@ -114,7 +137,14 @@ export function ClassesPage() {
                 label="Go to My children"
                 onClick={() => navigate('/children')}
               />
-              <AppButton label="Create new class" />
+
+              <AppButton
+                label="Create new class"
+                onClick={() => {
+                  createClass.reset()
+                  setIsCreateClassOpen(true)
+                }}
+              />
             </>
           }
         />
@@ -160,6 +190,15 @@ export function ClassesPage() {
         open={isNoChildrenOpen}
         onClose={() => setIsNoChildrenOpen(false)}
         onGoToChildren={handleGoToChildren}
+      />
+
+      {/* CREATE CLASS DIALOG */}
+      <CreateClassDialog
+        open={isCreateClassOpen}
+        onClose={() => setIsCreateClassOpen(false)}
+        onConfirm={handleCreateClass}
+        loading={createClass.isPending}
+        error={createClass.error}
       />
     </Stack>
   )
