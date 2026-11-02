@@ -12,8 +12,8 @@ export function AppLayout() {
       {' '}
       <Sidebar
         user={{
-          firstName: user.first_name ?? '',
-          lastName: user.last_name ?? '',
+          firstName: user?.first_name ?? '',
+          lastName: user?.last_name ?? '',
         }}
         activePath={location.pathname}
         onNavigate={navigate}
