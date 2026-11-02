@@ -38,7 +38,7 @@ export default function SelectChildToJoinDialog({
   }
 
   const handleConfirm = () => {
-    const child = availableChildren.find((item) => item.id === selectedChildId,)
+    const child = availableChildren.find((item) => item.id === selectedChildId)
 
     if (!child) return
 
