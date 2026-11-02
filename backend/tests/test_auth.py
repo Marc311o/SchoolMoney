@@ -1,4 +1,6 @@
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.accounts.models import Account
+from app.modules.auth.models import AccountActivationToken
+from app.modules.auth.security import hash_reset_token
 from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from tests.conftest import PASSWORD
@@ -19,7 +23,14 @@ def register(client: TestClient, email: str, **overrides):
         "last_name": "Kowalska",
         **overrides,
     }
-    return client.post("/api/auth/register", json=payload)
+    with patch("app.modules.auth.service.send_account_activation_email"):
+        return client.post("/api/auth/register", json=payload)
+
+
+def activate_user(db: Session, email: str) -> None:
+    user = db.scalars(select(User).where(User.email == email)).one()
+    user.status = UserStatus.ACTIVE
+    db.commit()
 
 
 def login(client: TestClient, email: str, password: str = PASSWORD):
@@ -47,7 +58,7 @@ def test_register_success(client: TestClient, db: Session):
     assert data["first_name"] == "Anna"
     assert data["last_name"] == "Kowalska"
     assert data["role"] == UserRole.PARENT.value
-    assert data["status"] == UserStatus.ACTIVE.value
+    assert data["status"] == UserStatus.PENDING_ACTIVATION.value
     assert "id" in data
     assert "password" not in data
     assert "password_hash" not in data
@@ -58,6 +69,11 @@ def test_register_success(client: TestClient, db: Session):
     account = db.scalars(select(Account).where(Account.user_id == user.id)).one()
     assert account.balance == Decimal("0.00")
     assert account.iban.startswith("PL")
+
+    token_record = db.scalars(
+        select(AccountActivationToken).where(AccountActivationToken.user_id == user.id)
+    ).first()
+    assert token_record is not None
 
 
 def test_register_duplicate_email(client: TestClient):
@@ -78,14 +94,104 @@ def test_register_validation(client: TestClient, email: str, password: str):
 
 
 # ---------------------------------------------------------------------------
+# Account Activation
+# ---------------------------------------------------------------------------
+
+
+@patch("app.modules.auth.service.send_account_activation_email")
+def test_account_activation_full_flow(mock_email, client: TestClient, db: Session):
+    email = "activation.flow@example.com"
+    payload = {
+        "email": email,
+        "password": PASSWORD,
+        "first_name": "Kamil",
+        "last_name": "Nowak",
+    }
+    reg_res = client.post("/api/auth/register", json=payload)
+    assert reg_res.status_code == 201
+    assert reg_res.json()["status"] == UserStatus.PENDING_ACTIVATION.value
+    assert mock_email.called
+
+    # Attempt login before activation -> 403 Forbidden
+    login_pre = login(client, email)
+    assert login_pre.status_code == 403
+    assert login_pre.json()["detail"] == "Account is not activated"
+
+    # Extract token from mailer call
+    activation_url = mock_email.call_args[0][1]
+    token = activation_url.split("token=")[-1]
+    assert len(token) in (42, 43)
+
+    # Activate account -> 204 No Content
+    act_res = client.post("/api/auth/activate", json={"token": token})
+    assert act_res.status_code == 204
+
+    # Verify database state
+    user = db.scalars(select(User).where(User.email == email)).one()
+    assert user.status == UserStatus.ACTIVE
+
+    token_record = db.scalars(
+        select(AccountActivationToken).where(AccountActivationToken.user_id == user.id)
+    ).first()
+    assert token_record is None
+
+    # Successful login after activation -> 200 OK
+    login_post = login(client, email)
+    assert login_post.status_code == 200
+    assert "access_token" in login_post.json()
+
+    # Attempt to reuse consumed token -> 400 Bad Request
+    act_reuse = client.post("/api/auth/activate", json={"token": token})
+    assert act_reuse.status_code == 400
+    assert act_reuse.json()["detail"] == "Invalid or expired activation token"
+
+
+@patch("app.modules.auth.service.send_account_activation_email")
+def test_account_activation_expired_token(mock_email, client: TestClient, db: Session):
+    email = "activation.expired@example.com"
+    payload = {
+        "email": email,
+        "password": PASSWORD,
+        "first_name": "Ewa",
+        "last_name": "Zielińska",
+    }
+    client.post("/api/auth/register", json=payload)
+
+    activation_url = mock_email.call_args[0][1]
+    token = activation_url.split("token=")[-1]
+
+    # Simulate token expiration (>30 mins)
+    token_hash = hash_reset_token(token)
+    token_record = db.scalars(
+        select(AccountActivationToken).where(AccountActivationToken.token_hash == token_hash)
+    ).one()
+    token_record.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    db.commit()
+
+    response = client.post("/api/auth/activate", json={"token": token})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired activation token"
+
+    user = db.scalars(select(User).where(User.email == email)).one()
+    assert user.status == UserStatus.PENDING_ACTIVATION
+
+
+def test_account_activation_validation(client: TestClient):
+    assert client.post("/api/auth/activate", json={"token": "too_short"}).status_code == 422
+    assert client.post("/api/auth/activate", json={"token": "x" * 43}).status_code == 400
+
+
+# ---------------------------------------------------------------------------
 # Login
 # ---------------------------------------------------------------------------
 
 
-def test_login_success(client: TestClient):
-    register(client, "login.test@example.com")
+def test_login_success(client: TestClient, db: Session):
+    email = "login.test@example.com"
+    register(client, email)
+    activate_user(db, email)
 
-    response = login(client, "login.test@example.com")
+    response = login(client, email)
     assert response.status_code == 200
 
     tokens = response.json()
@@ -101,10 +207,12 @@ def test_login_invalid_credentials(client: TestClient):
 
 
 def test_login_blocked_user(client: TestClient, db: Session):
-    register(client, "blocked@example.com")
-    block(db, "blocked@example.com")
+    email = "blocked@example.com"
+    register(client, email)
+    activate_user(db, email)
+    block(db, email)
 
-    response = login(client, "blocked@example.com")
+    response = login(client, email)
     assert response.status_code == 403
     assert response.json()["detail"] == "Account is blocked"
 
@@ -114,9 +222,11 @@ def test_login_blocked_user(client: TestClient, db: Session):
 # ---------------------------------------------------------------------------
 
 
-def test_refresh_token_success(client: TestClient):
-    register(client, "refresh.test@example.com")
-    refresh_token = login(client, "refresh.test@example.com").json()["refresh_token"]
+def test_refresh_token_success(client: TestClient, db: Session):
+    email = "refresh.test@example.com"
+    register(client, email)
+    activate_user(db, email)
+    refresh_token = login(client, email).json()["refresh_token"]
 
     response = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
     assert response.status_code == 200
@@ -137,18 +247,22 @@ def test_refresh_token_invalid(client: TestClient):
     assert response.status_code == 401
 
 
-def test_refresh_rejects_access_token(client: TestClient):
-    register(client, "type.mismatch@example.com")
-    access_token = login(client, "type.mismatch@example.com").json()["access_token"]
+def test_refresh_rejects_access_token(client: TestClient, db: Session):
+    email = "type.mismatch@example.com"
+    register(client, email)
+    activate_user(db, email)
+    access_token = login(client, email).json()["access_token"]
 
     response = client.post("/api/auth/refresh", json={"refresh_token": access_token})
     assert response.status_code == 401
 
 
 def test_refresh_token_blocked_user(client: TestClient, db: Session):
-    register(client, "refresh.blocked@example.com")
-    refresh_token = login(client, "refresh.blocked@example.com").json()["refresh_token"]
-    block(db, "refresh.blocked@example.com")
+    email = "refresh.blocked@example.com"
+    register(client, email)
+    activate_user(db, email)
+    refresh_token = login(client, email).json()["refresh_token"]
+    block(db, email)
 
     response = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
     assert response.status_code == 403
@@ -156,7 +270,7 @@ def test_refresh_token_blocked_user(client: TestClient, db: Session):
 
 
 # ---------------------------------------------------------------------------
-# Me
+# Me & Profile
 # ---------------------------------------------------------------------------
 
 
@@ -176,6 +290,27 @@ def test_get_me_success(client: TestClient, parent):
 )
 def test_get_me_unauthorized(client: TestClient, headers):
     assert client.get("/api/auth/me", headers=headers).status_code == 401
+
+
+def test_update_parent_profile_names(client: TestClient, parent):
+    payload = {
+        "first_name": "Joanna",
+        "last_name": "Nowak",
+    }
+    response = client.patch("/api/users/me", headers=parent, json=payload)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["first_name"] == "Joanna"
+    assert data["last_name"] == "Nowak"
+
+
+def test_update_profile_unauthorized(client: TestClient):
+    response = client.patch(
+        "/api/users/me",
+        json={"first_name": "Hacker"},
+    )
+    assert response.status_code == 401
 
 
 def test_change_password(client: TestClient, parent):

@@ -1,13 +1,20 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.classrooms import service
-from app.modules.classrooms.schemas import ClassDetailRead, ClassListItemRead
+from app.modules.classrooms.schemas import (
+    ClassAccessCodeCreate,
+    ClassAccessCodeRead,
+    ClassDetailRead,
+    ClassListItemRead,
+    SchoolClassCreate,
+    SchoolClassRead,
+)
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/classes", tags=["classes"])
@@ -33,3 +40,51 @@ def list_classes(user: CurrentUser, db: DbSession) -> list[ClassListItemRead]:
 )
 def get_class(class_id: UUID, user: CurrentUser, db: DbSession) -> ClassDetailRead:
     return service.get_class(db, user, class_id)
+
+
+@router.post(
+    "",
+    response_model=SchoolClassRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a class (creator becomes treasurer)",
+)
+def create_class(
+    payload: SchoolClassCreate,
+    user: CurrentUser,
+    db: DbSession,
+) -> SchoolClassRead:
+    return service.create_class(db, user, payload)
+
+
+@router.get(
+    "/{class_id}/access-code",
+    response_model=ClassAccessCodeRead | None,
+    summary="Get the active class access code (treasurer only)",
+    responses={404: {"description": "Class not found or I am not its treasurer"}},
+)
+def get_access_code(
+    class_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+    response: Response,
+) -> ClassAccessCodeRead | None:
+    response.headers["Cache-Control"] = "no-store"
+    return service.get_access_code(db, user, class_id)
+
+
+@router.post(
+    "/{class_id}/access-code",
+    response_model=ClassAccessCodeRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Generate or regenerate a class access code (treasurer only)",
+    responses={404: {"description": "Class not found or I am not its treasurer"}},
+)
+def regenerate_access_code(
+    class_id: UUID,
+    data: ClassAccessCodeCreate,
+    user: CurrentUser,
+    db: DbSession,
+    response: Response,
+) -> ClassAccessCodeRead:
+    response.headers["Cache-Control"] = "no-store"
+    return service.regenerate_access_code(db, user, class_id, data)

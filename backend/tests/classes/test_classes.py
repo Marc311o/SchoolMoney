@@ -229,3 +229,129 @@ def test_removed_child_loses_access(client: TestClient, school: School):
 
 def test_unknown_class_is_404(client: TestClient, parent):
     assert client.get(f"/api/classes/{uuid4()}", headers=parent).status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /classes
+# ---------------------------------------------------------------------------
+
+
+def test_requires_login_to_create_class(client: TestClient):
+    response = client.post(
+        "/api/classes",
+        json={"name": "4A"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_treasurer_can_create_class(
+    client: TestClient,
+    school: School,
+    db: Session,
+):
+    response = client.post(
+        "/api/classes",
+        headers=school.treasurer,
+        json={
+            "name": "4A",
+            "school_name": "SP nr 15",
+        },
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert body["name"] == "4A"
+    assert body["school_name"] == "SP nr 15"
+    assert body["treasurer_id"] == str(user_id(db, "treasurer@example.com"))
+    assert UUID(body["id"])
+    assert body["created_at"] is not None
+
+    created_class = db.get(SchoolClass, UUID(body["id"]))
+    assert created_class is not None
+    assert created_class.treasurer_id == user_id(db, "treasurer@example.com")
+
+
+def test_creator_automatically_sees_class_as_treasurer(
+    client: TestClient,
+    school: School,
+):
+    response = client.post(
+        "/api/classes",
+        headers=school.parent,
+        json={"name": "5B"},
+    )
+
+    assert response.status_code == 201
+    created_id = response.json()["id"]
+
+    classes = get_classes(client, school.parent)
+
+    created = next(item for item in classes if item["id"] == created_id)
+
+    assert created["my_role"] == "TREASURER"
+    assert created["name"] == "5B"
+    assert created["school_name"] is None
+    assert created["my_children"] == []
+    assert created["children_count"] == 0
+
+
+def test_class_can_be_created_without_school_name(
+    client: TestClient,
+    school: School,
+):
+    response = client.post(
+        "/api/classes",
+        headers=school.treasurer,
+        json={"name": "6A"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["school_name"] is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"name": ""},
+        {"name": "   "},
+        {"name": "A" * 101},
+        {"name": "4A", "school_name": ""},
+        {"name": "4A", "school_name": "   "},
+        {"name": "4A", "school_name": "S" * 256},
+    ],
+)
+def test_create_class_validation(
+    client: TestClient,
+    school: School,
+    payload: dict,
+):
+    response = client.post(
+        "/api/classes",
+        headers=school.treasurer,
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_class_does_not_accept_treasurer_id_from_client(
+    client: TestClient,
+    school: School,
+    db: Session,
+):
+    stranger_id = user_id(db, "stranger@example.com")
+
+    response = client.post(
+        "/api/classes",
+        headers=school.treasurer,
+        json={
+            "name": "7A",
+            "treasurer_id": str(stranger_id),
+        },
+    )
+
+    assert response.status_code == 422

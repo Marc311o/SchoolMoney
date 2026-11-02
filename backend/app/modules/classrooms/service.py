@@ -1,18 +1,24 @@
 from collections import defaultdict
-from uuid import UUID
+from datetime import UTC, datetime
+from secrets import token_urlsafe
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import ClassRole, MembershipStatus
-from app.modules.classrooms.models import ChildClassMembership, SchoolClass
+from app.modules.classrooms.models import ChildClassMembership, ClassAccessCode, SchoolClass
 from app.modules.classrooms.schemas import (
+    ClassAccessCodeCreate,
+    ClassAccessCodeRead,
     ClassDetailRead,
     ClassListItemRead,
     ClassMemberRead,
     ClassMemberWithParentRead,
+    SchoolClassCreate,
     SchoolClassRead,
 )
 from app.modules.users.models import User
@@ -127,4 +133,111 @@ def get_class(db: Session, user: User, class_id: UUID) -> ClassDetailRead:
             )
             for membership, parent in rows
         ],
+    )
+
+
+def create_class(
+    db: Session,
+    user: User,
+    payload: SchoolClassCreate,
+) -> SchoolClassRead:
+    """Create a class owned by the current user, who becomes its treasurer."""
+    school_class = SchoolClass(
+        id=uuid4(),
+        name=payload.name,
+        school_name=payload.school_name,
+        treasurer_id=user.id,
+    )
+
+    db.add(school_class)
+    db.commit()
+    db.refresh(school_class)
+
+    return SchoolClassRead.model_validate(school_class)
+
+
+def _require_treasurer(
+    db: Session, user: User, class_id: UUID, *, lock: bool = False
+) -> SchoolClass:
+    statement = select(SchoolClass).where(
+        SchoolClass.id == class_id,
+        SchoolClass.treasurer_id == user.id,
+    )
+
+    if lock:
+        statement = statement.with_for_update()
+
+    school_class = db.scalar(statement)
+
+    if school_class is None:
+        raise _class_not_found()
+
+    return school_class
+
+
+def get_access_code(db: Session, user: User, class_id: UUID) -> ClassAccessCodeRead | None:
+    _require_treasurer(db, user, class_id)
+
+    access_code = db.scalar(
+        select(ClassAccessCode)
+        .where(
+            ClassAccessCode.class_id == class_id,
+            ClassAccessCode.active.is_(True),
+            (ClassAccessCode.valid_until.is_(None))
+            | (ClassAccessCode.valid_until > datetime.now(UTC)),
+        )
+        .order_by(ClassAccessCode.created_at.desc(), ClassAccessCode.id.desc())
+        .limit(1)
+    )
+
+    return ClassAccessCodeRead.model_validate(access_code) if access_code else None
+
+
+def regenerate_access_code(
+    db: Session, user: User, class_id: UUID, data: ClassAccessCodeCreate
+) -> ClassAccessCodeRead:
+    _require_treasurer(db, user, class_id, lock=True)
+
+    db.execute(
+        update(ClassAccessCode)
+        .where(
+            ClassAccessCode.class_id == class_id,
+            ClassAccessCode.active.is_(True),
+        )
+        .values(active=False)
+    )
+
+    for _ in range(5):
+        candidate = token_urlsafe(16)
+
+        try:
+            # A collision rolls back only this insert.
+            with db.begin_nested():
+                access_code = ClassAccessCode(
+                    id=uuid4(),
+                    class_id=class_id,
+                    code=candidate,
+                    valid_until=data.valid_until,
+                    active=True,
+                )
+                db.add(access_code)
+                db.flush()
+
+        except IntegrityError:
+            if db.scalar(select(ClassAccessCode.id).where(ClassAccessCode.code == candidate)):
+                continue
+
+            raise
+
+        else:
+            db.commit()
+            db.refresh(access_code)
+            return ClassAccessCodeRead.model_validate(access_code)
+
+    # Restore the previous code if generation fails.
+    db.rollback()
+
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Could not generate an access code. Please try again.",
     )
