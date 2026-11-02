@@ -4,6 +4,7 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 import { ChildrenPage } from '@/features/children/pages/ChildrenPage'
 import { ClassesPage } from '@/features/classes/pages/ClassesPage'
+import { ClassPage } from '@/features/classes/pages/ClassPage'
 import { ChatPage } from '@/features/chat/pages/ChatPage'
 import { ReportsPage } from '@/features/reports/pages/ReportsPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
           { path: '/', element: <DashboardPage /> },
           { path: '/children', element: <ChildrenPage /> },
           { path: '/classes', element: <ClassesPage /> },
+          { path: '/classes/:classId', element: <ClassPage /> },
           { path: '/account', element: <WalletPage /> },
           { path: '/chat', element: <ChatPage /> },
           { path: '/reports', element: <ReportsPage /> },
