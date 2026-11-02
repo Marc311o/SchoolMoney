@@ -11,7 +11,10 @@ export function AppLayout() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {' '}
       <Sidebar
-        user={{ firstName: user.first_name, lastName: user.last_name }}
+        user={{
+          firstName: user.first_name ?? '',
+          lastName: user.last_name ?? '',
+        }}
         activePath={location.pathname}
         onNavigate={navigate}
         onLogout={logout}
