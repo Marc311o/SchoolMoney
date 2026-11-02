@@ -19,14 +19,14 @@ import type { Child } from '@/features/children/api'
 
 interface SelectChildToJoinDialogProps {
   open: boolean
-  children: Child[]
+  availableChildren: Child[]
   onClose: () => void
   onConfirm: (child: Child) => void
 }
 
 export default function SelectChildToJoinDialog({
   open,
-  children,
+  availableChildren,
   onClose,
   onConfirm,
 }: SelectChildToJoinDialogProps) {
@@ -38,7 +38,7 @@ export default function SelectChildToJoinDialog({
   }
 
   const handleConfirm = () => {
-    const child = children.find((item) => item.id === selectedChildId)
+    const child = availableChildren.find((item) => item.id === selectedChildId,)
 
     if (!child) return
 
@@ -60,7 +60,7 @@ export default function SelectChildToJoinDialog({
             value={selectedChildId}
             onChange={(event) => setSelectedChildId(event.target.value)}
           >
-            {children.map((child) => {
+            {availableChildren.map((child) => {
               const fullName = `${child.first_name} ${child.last_name}`
 
               return (

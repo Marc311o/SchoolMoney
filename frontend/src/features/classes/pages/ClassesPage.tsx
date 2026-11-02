@@ -136,7 +136,7 @@ export function ClassesPage() {
       {/* SELECT CHILD */}
       <SelectChildToJoinDialog
         open={isSelectChildOpen}
-        children={availableChildren}
+        availableChildren={availableChildren}
         onClose={handleCloseSelectChild}
         onConfirm={handleSelectChild}
       />
