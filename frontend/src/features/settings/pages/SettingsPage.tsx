@@ -13,6 +13,7 @@ import TextInput from '@/components/TextInput'
 import AppButton from '@/components/AppButton'
 import WhiteCard from '@/components/WhiteCard'
 import UserStatusChip from '@/components/UserStatusChip'
+import PageHeader from '@/components/PageHeader'
 
 import { type ApiError, getFieldErrors } from '@/lib/api'
 
@@ -65,25 +66,24 @@ function getPasswordErrors(error: ApiError): PasswordErrors {
 }
 
 export function SettingsPage() {
-  const { data: user, isLoading, isError } = useCurrentUser()
+  const { data: user, isPending, isError } = useCurrentUser()
 
-  if (isLoading) {
-    return (
-      <Box sx={{ p: 4 }}>
+  return (
+    <Stack component="div" sx={{ gap: 4, p: '1em' }}>
+      <PageHeader
+        title="Settings"
+        subtitle="Manage your account information and security settings."
+      />
+
+      {isPending ? (
         <Typography color="text.secondary">Loading settings...</Typography>
-      </Box>
-    )
-  }
-
-  if (isError || !user) {
-    return (
-      <Box sx={{ p: 4 }}>
+      ) : isError || !user ? (
         <Alert severity="error">Could not load user information.</Alert>
-      </Box>
-    )
-  }
-
-  return <SettingsContent key={user.id} user={user} />
+      ) : (
+        <SettingsContent key={user.id} user={user} />
+      )}
+    </Stack>
+  )
 }
 
 function SettingsContent({ user }: { user: User }) {
@@ -189,34 +189,148 @@ function SettingsContent({ user }: { user: User }) {
   }
 
   return (
-    <Box
-      sx={{
-        p: { xs: 2, md: 4 },
-        maxWidth: 1100,
-        mx: 'auto',
-      }}
-    >
-      {/* Header */}
-      <Stack component="div" sx={{ gap: 1, mb: 4 }}>
-        <Typography
-          variant="h1"
-          sx={{
-            fontSize: { xs: '2rem', md: '2.5rem' },
-            fontWeight: 700,
-            color: 'text.primary',
-          }}
-        >
-          Settings
-        </Typography>
+    <Grid container spacing={3}>
+      {/* Account information */}
+      <Grid size={{ xs: 12, md: 5 }}>
+        <WhiteCard padding={3}>
+          <Stack component="div" sx={{ gap: 3 }}>
+            <Stack
+              component="div"
+              sx={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 1.5,
+              }}
+            >
+              <AppAvatar
+                name={`${user.first_name} ${user.last_name}`}
+                src={user.avatar_url}
+                size={44}
+              />
 
-        <Typography color="text.secondary">
-          Manage your account information and security settings.
-        </Typography>
-      </Stack>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Account information
+              </Typography>
+            </Stack>
 
-      <Grid container spacing={3}>
-        {/* Account information */}
-        <Grid size={{ xs: 12, md: 5 }}>
+            <Divider />
+
+            <Stack component="div" sx={{ gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Full name
+                </Typography>
+
+                <Stack
+                  component="div"
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <PersonRoundedIcon fontSize="small" color="action" />
+
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {user.first_name} {user.last_name}
+                  </Typography>
+                </Stack>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Email address
+                </Typography>
+
+                <Stack
+                  component="div"
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <EmailRoundedIcon fontSize="small" color="action" />
+
+                  <Typography sx={{ fontWeight: 600 }}>{user.email}</Typography>
+                </Stack>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Account role
+                </Typography>
+
+                <Box>
+                  <UserStatusChip label={user.role} />
+                </Box>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Account status
+                </Typography>
+
+                <Box>
+                  <UserStatusChip label={user.status} />
+                </Box>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Member since
+                </Typography>
+
+                <Stack
+                  component="div"
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <CalendarMonthRoundedIcon fontSize="small" color="action" />
+
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {formatDate(user.created_at)}
+                  </Typography>
+                </Stack>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Last profile update
+                </Typography>
+
+                <Stack
+                  component="div"
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <UpdateRoundedIcon fontSize="small" color="action" />
+
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {user.updated_at ? formatDate(user.updated_at) : 'Never'}
+                  </Typography>
+                </Stack>
+              </Box>
+            </Stack>
+          </Stack>
+        </WhiteCard>
+      </Grid>
+
+      {/* Personal information and password */}
+      <Grid size={{ xs: 12, md: 7 }}>
+        <Stack component="div" sx={{ gap: 3 }}>
+          {/* Edit profile */}
           <WhiteCard padding={3}>
             <Stack component="div" sx={{ gap: 3 }}>
               <Stack
@@ -225,286 +339,144 @@ function SettingsContent({ user }: { user: User }) {
                   display: 'flex',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 1.5,
+                  gap: 1,
                 }}
               >
-                <AppAvatar
-                  name={`${user.first_name} ${user.last_name}`}
-                  src={user.avatar_url}
-                  size={44}
-                />
+                <PersonRoundedIcon color="primary" />
 
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Account information
+                  Personal information
                 </Typography>
               </Stack>
 
-              <Divider />
+              <Typography variant="body2" color="text.secondary">
+                Update your first and last name.
+              </Typography>
 
-              <Stack component="div" sx={{ gap: 2 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Full name
-                  </Typography>
+              {profileSuccess && (
+                <Alert severity="success">
+                  Your profile has been updated successfully.
+                </Alert>
+              )}
 
-                  <Stack
-                    component="div"
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <PersonRoundedIcon fontSize="small" color="action" />
+              <Stack
+                component="form"
+                sx={{ gap: 2 }}
+                onSubmit={handleProfileSubmit}
+                noValidate
+              >
+                <TextInput
+                  value={firstName}
+                  onChange={setFirstName}
+                  placeholder="First name"
+                  name="first_name"
+                  error={Boolean(profileErrors.first_name)}
+                  errorText={profileErrors.first_name}
+                  disabled={updateProfile.isPending}
+                />
 
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {user.first_name} {user.last_name}
-                    </Typography>
-                  </Stack>
-                </Box>
+                <TextInput
+                  value={lastName}
+                  onChange={setLastName}
+                  placeholder="Last name"
+                  name="last_name"
+                  error={Boolean(profileErrors.last_name)}
+                  errorText={profileErrors.last_name}
+                  disabled={updateProfile.isPending}
+                />
 
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Email address
-                  </Typography>
-
-                  <Stack
-                    component="div"
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <EmailRoundedIcon fontSize="small" color="action" />
-
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {user.email}
-                    </Typography>
-                  </Stack>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Account role
-                  </Typography>
-
-                  <Box>
-                    <UserStatusChip label={user.role} />
-                  </Box>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Account status
-                  </Typography>
-
-                  <Box>
-                    <UserStatusChip label={user.status} />
-                  </Box>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Member since
-                  </Typography>
-
-                  <Stack
-                    component="div"
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <CalendarMonthRoundedIcon fontSize="small" color="action" />
-
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {formatDate(user.created_at)}
-                    </Typography>
-                  </Stack>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Last profile update
-                  </Typography>
-
-                  <Stack
-                    component="div"
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <UpdateRoundedIcon fontSize="small" color="action" />
-
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {user.updated_at ? formatDate(user.updated_at) : 'Never'}
-                    </Typography>
-                  </Stack>
-                </Box>
+                <AppButton
+                  type="submit"
+                  fullWidth
+                  label="Save changes"
+                  loading={updateProfile.isPending}
+                />
               </Stack>
             </Stack>
           </WhiteCard>
-        </Grid>
 
-        {/* Personal information and password */}
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Stack component="div" sx={{ gap: 3 }}>
-            {/* Edit profile */}
-            <WhiteCard padding={3}>
-              <Stack component="div" sx={{ gap: 3 }}>
-                <Stack
-                  component="div"
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
-                  <PersonRoundedIcon color="primary" />
+          {/* Change password */}
+          <WhiteCard padding={3}>
+            <Stack component="div" sx={{ gap: 3 }}>
+              <Stack
+                component="div"
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                <LockRoundedIcon color="primary" />
 
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Personal information
-                  </Typography>
-                </Stack>
-
-                <Typography variant="body2" color="text.secondary">
-                  Update your first and last name.
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Change password
                 </Typography>
-
-                {profileSuccess && (
-                  <Alert severity="success">
-                    Your profile has been updated successfully.
-                  </Alert>
-                )}
-
-                <Stack
-                  component="form"
-                  sx={{ gap: 2 }}
-                  onSubmit={handleProfileSubmit}
-                  noValidate
-                >
-                  <TextInput
-                    value={firstName}
-                    onChange={setFirstName}
-                    placeholder="First name"
-                    name="first_name"
-                    error={Boolean(profileErrors.first_name)}
-                    errorText={profileErrors.first_name}
-                    disabled={updateProfile.isPending}
-                  />
-
-                  <TextInput
-                    value={lastName}
-                    onChange={setLastName}
-                    placeholder="Last name"
-                    name="last_name"
-                    error={Boolean(profileErrors.last_name)}
-                    errorText={profileErrors.last_name}
-                    disabled={updateProfile.isPending}
-                  />
-
-                  <AppButton
-                    type="submit"
-                    fullWidth
-                    label="Save changes"
-                    loading={updateProfile.isPending}
-                  />
-                </Stack>
               </Stack>
-            </WhiteCard>
 
-            {/* Change password */}
-            <WhiteCard padding={3}>
-              <Stack component="div" sx={{ gap: 3 }}>
-                <Stack
-                  component="div"
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
-                  <LockRoundedIcon color="primary" />
+              <Typography variant="body2" color="text.secondary">
+                Choose a strong password to keep your account secure.
+              </Typography>
 
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Change password
-                  </Typography>
-                </Stack>
+              {passwordSuccess && (
+                <Alert severity="success">
+                  Your password has been changed successfully.
+                </Alert>
+              )}
 
-                <Typography variant="body2" color="text.secondary">
-                  Choose a strong password to keep your account secure.
-                </Typography>
+              <Stack
+                component="form"
+                sx={{ gap: 2 }}
+                onSubmit={handlePasswordSubmit}
+                noValidate
+              >
+                <TextInput
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                  placeholder="Current password"
+                  name="current_password"
+                  password
+                  icon={<LockRoundedIcon fontSize="small" />}
+                  error={Boolean(passwordErrors.current_password)}
+                  errorText={passwordErrors.current_password}
+                  disabled={changePassword.isPending}
+                />
 
-                {passwordSuccess && (
-                  <Alert severity="success">
-                    Your password has been changed successfully.
-                  </Alert>
-                )}
+                <TextInput
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  placeholder="New password"
+                  name="new_password"
+                  password
+                  icon={<LockRoundedIcon fontSize="small" />}
+                  error={Boolean(passwordErrors.new_password)}
+                  errorText={passwordErrors.new_password}
+                  disabled={changePassword.isPending}
+                />
 
-                <Stack
-                  component="form"
-                  sx={{ gap: 2 }}
-                  onSubmit={handlePasswordSubmit}
-                  noValidate
-                >
-                  <TextInput
-                    value={currentPassword}
-                    onChange={setCurrentPassword}
-                    placeholder="Current password"
-                    name="current_password"
-                    password
-                    icon={<LockRoundedIcon fontSize="small" />}
-                    error={Boolean(passwordErrors.current_password)}
-                    errorText={passwordErrors.current_password}
-                    disabled={changePassword.isPending}
-                  />
+                <TextInput
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  placeholder="Confirm new password"
+                  name="confirm_password"
+                  password
+                  icon={<LockRoundedIcon fontSize="small" />}
+                  error={Boolean(passwordErrors.confirm_password)}
+                  errorText={passwordErrors.confirm_password}
+                  disabled={changePassword.isPending}
+                />
 
-                  <TextInput
-                    value={newPassword}
-                    onChange={setNewPassword}
-                    placeholder="New password"
-                    name="new_password"
-                    password
-                    icon={<LockRoundedIcon fontSize="small" />}
-                    error={Boolean(passwordErrors.new_password)}
-                    errorText={passwordErrors.new_password}
-                    disabled={changePassword.isPending}
-                  />
-
-                  <TextInput
-                    value={confirmPassword}
-                    onChange={setConfirmPassword}
-                    placeholder="Confirm new password"
-                    name="confirm_password"
-                    password
-                    icon={<LockRoundedIcon fontSize="small" />}
-                    error={Boolean(passwordErrors.confirm_password)}
-                    errorText={passwordErrors.confirm_password}
-                    disabled={changePassword.isPending}
-                  />
-
-                  <AppButton
-                    type="submit"
-                    fullWidth
-                    label="Change password"
-                    loading={changePassword.isPending}
-                  />
-                </Stack>
+                <AppButton
+                  type="submit"
+                  fullWidth
+                  label="Change password"
+                  loading={changePassword.isPending}
+                />
               </Stack>
-            </WhiteCard>
-          </Stack>
-        </Grid>
+            </Stack>
+          </WhiteCard>
+        </Stack>
       </Grid>
-    </Box>
+    </Grid>
   )
 }
