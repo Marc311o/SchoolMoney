@@ -107,8 +107,7 @@ export function useCreateClass() {
   const queryClient = useQueryClient()
 
   return useMutation<ClassListItem, ApiError, SchoolClassCreate>({
-    mutationFn: (payload) =>
-      api.post<ClassListItem>('/classes', payload),
+    mutationFn: (payload) => api.post<ClassListItem>('/classes', payload),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
