@@ -10,9 +10,10 @@ interface ChildCardProps {
   child: Child
   onEdit: (child: Child) => void
   onRemove: (child: Child) => void
+  onJoin: (child: Child) => void
 }
 
-export function ChildCard({ child, onEdit, onRemove }: ChildCardProps) {
+export function ChildCard({ child, onEdit, onRemove, onJoin }: ChildCardProps) {
   const fullName = `${child.first_name} ${child.last_name}`
   const age = ageInYears(child.birth_date)
 
@@ -34,7 +35,10 @@ export function ChildCard({ child, onEdit, onRemove }: ChildCardProps) {
 
         <Divider sx={{ borderColor: 'divider' }} />
 
-        <ClassInfo schoolClass={child.school_class} />
+        <ClassInfo
+          schoolClass={child.school_class}
+          onJoin={() => onJoin(child)}
+        />
 
         <Divider sx={{ borderColor: 'divider' }} />
 
@@ -52,7 +56,13 @@ export function ChildCard({ child, onEdit, onRemove }: ChildCardProps) {
   )
 }
 
-function ClassInfo({ schoolClass }: { schoolClass: ChildClass | null }) {
+function ClassInfo({
+  schoolClass,
+  onJoin,
+}: {
+  schoolClass: ChildClass | null
+  onJoin: () => void
+}) {
   if (!schoolClass) {
     return (
       <Stack
@@ -70,9 +80,9 @@ function ClassInfo({ schoolClass }: { schoolClass: ChildClass | null }) {
           Not in a class yet.
         </Typography>
 
-        {/* TODO: open the "join with a code" flow when classes are ready */}
         <Button
           size="small"
+          onClick={onJoin}
           sx={{
             bgcolor: 'primary.light',
             color: 'primary.dark',

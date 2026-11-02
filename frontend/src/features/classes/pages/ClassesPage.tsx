@@ -1,3 +1,6 @@
+import { type Child, useChildren, useJoinClass } from '@/features/children/api'
+import { useState } from 'react'
+
 import { Box, CircularProgress, Typography, Stack } from '@mui/material'
 import { useNavigate } from 'react-router'
 
@@ -7,10 +10,76 @@ import EmptyState from '@/components/EmptyState'
 import PageHeader from '@/components/PageHeader'
 import { useClasses } from '@/features/classes/api'
 import { ClassCard } from '@/features/classes/components/ClassCard'
+import SelectChildToJoinDialog from '@/features/classes/components/SelectChildToJoinDialog.tsx'
+import JoinClassDialog from '@/features/children/components/JoinClassDialog.tsx'
+import NoAvailableChildrenDialog from '@/features/classes/components/NoAvailableChildrenDialog'
 
 export function ClassesPage() {
   const { data: classes = [], isPending, isError } = useClasses()
   const navigate = useNavigate()
+
+  const { data: children = [] } = useChildren()
+
+  const joinClass = useJoinClass()
+
+  const [isSelectChildOpen, setIsSelectChildOpen] = useState(false)
+  const [childToJoin, setChildToJoin] = useState<Child | null>(null)
+
+  // Children who do not belong to any class
+  const availableChildren = children.filter(
+    (child) => child.school_class === null,
+  )
+
+  const [isNoChildrenOpen, setIsNoChildrenOpen] = useState(false)
+
+  const handleOpenJoin = () => {
+    if (availableChildren.length === 0) {
+      setIsNoChildrenOpen(true)
+      return
+    }
+
+    setIsSelectChildOpen(true)
+  }
+
+  const handleCloseSelectChild = () => {
+    setIsSelectChildOpen(false)
+  }
+
+  const handleSelectChild = (child: Child) => {
+    setIsSelectChildOpen(false)
+
+    joinClass.reset()
+    setChildToJoin(child)
+  }
+
+  const handleCloseJoin = () => {
+    if (joinClass.isPending) return
+
+    setChildToJoin(null)
+    joinClass.reset()
+  }
+
+  const handleConfirmJoin = (code: string) => {
+    if (!childToJoin) return
+
+    joinClass.mutate(
+      {
+        child_id: childToJoin.id,
+        code,
+      },
+      {
+        onSuccess: () => {
+          setChildToJoin(null)
+          joinClass.reset()
+        },
+      },
+    )
+  }
+
+  const handleGoToChildren = () => {
+    setIsNoChildrenOpen(false)
+    navigate('/children')
+  }
 
   return (
     <Stack spacing={4} sx={{ p: '1em' }}>
@@ -20,8 +89,10 @@ export function ClassesPage() {
         actions={
           classes.length > 0 && (
             <>
-              {/* TODO: wire up when the endpoints exist */}
-              <AppButtonOutlined label="Join with a code" />
+              <AppButtonOutlined
+                label="Join with a code"
+                onClick={handleOpenJoin}
+              />
               <AppButton label="New class" />
             </>
           )
@@ -61,6 +132,35 @@ export function ClassesPage() {
           ))}
         </Box>
       )}
+
+      {/* SELECT CHILD */}
+      <SelectChildToJoinDialog
+        open={isSelectChildOpen}
+        availableChildren={availableChildren}
+        onClose={handleCloseSelectChild}
+        onConfirm={handleSelectChild}
+      />
+
+      {/* JOIN CLASS */}
+      <JoinClassDialog
+        open={!!childToJoin}
+        childName={
+          childToJoin
+            ? `${childToJoin.first_name} ${childToJoin.last_name}`
+            : ''
+        }
+        onClose={handleCloseJoin}
+        onConfirm={handleConfirmJoin}
+        loading={joinClass.isPending}
+        error={joinClass.error}
+      />
+
+      {/* NO AVAILABLE CHILDREN */}
+      <NoAvailableChildrenDialog
+        open={isNoChildrenOpen}
+        onClose={() => setIsNoChildrenOpen(false)}
+        onGoToChildren={handleGoToChildren}
+      />
     </Stack>
   )
 }

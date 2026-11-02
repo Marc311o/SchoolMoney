@@ -9,6 +9,7 @@ import {
   type ChildUpdate,
   useChildren,
   useCreateChild,
+  useJoinClass,
   useRemoveChild,
   useUpdateChild,
 } from '@/features/children/api'
@@ -18,6 +19,7 @@ import RemoveChildDialog from '@/features/children/components/RemoveChildDialog'
 import AddChildDialog from '@/features/children/components/AddChildDialog'
 import EditChildDialog from '@/features/children/components/EditChildDialog'
 import EmptyState from '@/components/EmptyState.tsx'
+import JoinClassDialog from '@/features/children/components/JoinClassDialog.tsx'
 
 export function ChildrenPage() {
   const { data: children = [], isPending, isError } = useChildren()
@@ -29,6 +31,39 @@ export function ChildrenPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [childToRemove, setChildToRemove] = useState<Child | null>(null)
   const [childToEdit, setChildToEdit] = useState<Child | null>(null)
+
+  const joinClass = useJoinClass()
+  const [childToJoin, setChildToJoin] = useState<Child | null>(null)
+
+  // JOIN CLASS
+  const handleJoin = (child: Child) => {
+    joinClass.reset()
+    setChildToJoin(child)
+  }
+
+  const handleCloseJoin = () => {
+    if (joinClass.isPending) return
+
+    setChildToJoin(null)
+    joinClass.reset()
+  }
+
+  const handleConfirmJoin = (code: string) => {
+    if (!childToJoin) return
+
+    joinClass.mutate(
+      {
+        child_id: childToJoin.id,
+        code,
+      },
+      {
+        onSuccess: () => {
+          setChildToJoin(null)
+          joinClass.reset()
+        },
+      },
+    )
+  }
 
   // ADD
   const handleAdd = () => {
@@ -166,6 +201,7 @@ export function ChildrenPage() {
                 child={child}
                 onEdit={handleEdit}
                 onRemove={handleRemove}
+                onJoin={handleJoin}
               />
             ))}
           </Box>
@@ -201,6 +237,20 @@ export function ChildrenPage() {
         onConfirm={handleConfirmEdit}
         loading={updateChild.isPending}
         error={updateChild.error}
+      />
+
+      {/* JOIN CLASS */}
+      <JoinClassDialog
+        open={!!childToJoin}
+        childName={
+          childToJoin
+            ? `${childToJoin.first_name} ${childToJoin.last_name}`
+            : ''
+        }
+        onClose={handleCloseJoin}
+        onConfirm={handleConfirmJoin}
+        loading={joinClass.isPending}
+        error={joinClass.error}
       />
     </>
   )
