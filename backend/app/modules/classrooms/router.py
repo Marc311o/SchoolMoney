@@ -8,10 +8,13 @@ from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.classrooms import service
 from app.modules.classrooms.schemas import (
+    ChildClassMembershipRead,
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassJoinRequest,
     ClassListItemRead,
+    MembershipReviewRequest,
     SchoolClassCreate,
     SchoolClassRead,
 )
@@ -88,3 +91,46 @@ def regenerate_access_code(
 ) -> ClassAccessCodeRead:
     response.headers["Cache-Control"] = "no-store"
     return service.regenerate_access_code(db, user, class_id, data)
+
+
+@router.post(
+    "/join",
+    response_model=ChildClassMembershipRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Request to join a class using an access code",
+    responses={
+        404: {"description": "Invalid/expired access code or child not found"},
+        409: {"description": "Child already in a class or pending approval"},
+    },
+)
+def join_class(
+    payload: ClassJoinRequest,
+    user: CurrentUser,
+    db: DbSession,
+) -> ChildClassMembershipRead:
+    return service.join_class(db, user, payload)
+
+
+@router.patch(
+    "/{class_id}/members/{membership_id}",
+    response_model=ChildClassMembershipRead,
+    summary="Approve or reject a pending membership request (treasurer only)",
+    responses={
+        404: {"description": "Class or membership request not found"},
+        409: {"description": "Membership is not pending"},
+    },
+)
+def review_membership(
+    class_id: UUID,
+    membership_id: UUID,
+    payload: MembershipReviewRequest,
+    user: CurrentUser,
+    db: DbSession,
+) -> ChildClassMembershipRead:
+    return service.review_membership(
+        db=db,
+        user=user,
+        class_id=class_id,
+        membership_id=membership_id,
+        payload=payload,
+    )

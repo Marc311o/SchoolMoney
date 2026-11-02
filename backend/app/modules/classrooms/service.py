@@ -12,12 +12,15 @@ from app.modules.children.models import Child
 from app.modules.classrooms.enums import ClassRole, MembershipStatus
 from app.modules.classrooms.models import ChildClassMembership, ClassAccessCode, SchoolClass
 from app.modules.classrooms.schemas import (
+    ChildClassMembershipRead,
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassJoinRequest,
     ClassListItemRead,
     ClassMemberRead,
     ClassMemberWithParentRead,
+    MembershipReviewRequest,
     SchoolClassCreate,
     SchoolClassRead,
 )
@@ -241,3 +244,130 @@ def regenerate_access_code(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Could not generate an access code. Please try again.",
     )
+
+
+def join_class(
+    db: Session,
+    user: User,
+    payload: ClassJoinRequest,
+) -> ChildClassMembershipRead:
+    """Request to join a class via an active access code."""
+    access_code = db.scalar(
+        select(ClassAccessCode).where(
+            ClassAccessCode.code == payload.code,
+            ClassAccessCode.active.is_(True),
+            (ClassAccessCode.valid_until.is_(None))
+            | (ClassAccessCode.valid_until > datetime.now(UTC)),
+        )
+    )
+    if access_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired access code",
+        )
+
+    child = db.scalar(
+        select(Child).where(
+            Child.id == payload.child_id,
+            Child.parent_id == user.id,
+            Child.deleted_at.is_(None),
+        )
+    )
+    if child is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Child not found",
+        )
+
+    current_membership = db.scalar(
+        select(ChildClassMembership).where(
+            ChildClassMembership.child_id == child.id,
+            ChildClassMembership.status.in_(CURRENT_MEMBERSHIP),
+        )
+    )
+    if current_membership is not None:
+        if current_membership.class_id == access_code.class_id:
+            detail = (
+                "Child is already a member of this class"
+                if current_membership.status == MembershipStatus.ACTIVE
+                else "Join request is already pending"
+            )
+        else:
+            detail = "Child already belongs to or has a pending request in another class"
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        )
+
+    existing_membership = db.scalar(
+        select(ChildClassMembership).where(
+            ChildClassMembership.child_id == child.id,
+            ChildClassMembership.class_id == access_code.class_id,
+        )
+    )
+
+    now = datetime.now(UTC)
+    if existing_membership is not None:
+        existing_membership.status = MembershipStatus.PENDING
+        existing_membership.requested_at = now
+        existing_membership.left_at = None
+        db.commit()
+        db.refresh(existing_membership)
+        return ChildClassMembershipRead.model_validate(existing_membership)
+
+    membership = ChildClassMembership(
+        id=uuid4(),
+        child_id=child.id,
+        class_id=access_code.class_id,
+        status=MembershipStatus.PENDING,
+        requested_at=now,
+    )
+    db.add(membership)
+    db.commit()
+    db.refresh(membership)
+
+    return ChildClassMembershipRead.model_validate(membership)
+
+
+def review_membership(
+    db: Session,
+    user: User,
+    class_id: UUID,
+    membership_id: UUID,
+    payload: MembershipReviewRequest,
+) -> ChildClassMembershipRead:
+    """Approve (ACTIVE) or reject (REJECTED) a pending join request. Treasurer only."""
+    _require_treasurer(db, user, class_id)
+
+    membership = db.scalar(
+        select(ChildClassMembership).where(
+            ChildClassMembership.id == membership_id,
+            ChildClassMembership.class_id == class_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership request not found",
+        )
+
+    if membership.status != MembershipStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot review membership with status {membership.status.value}",
+        )
+
+    now = datetime.now(UTC)
+    membership.status = payload.status
+
+    if payload.status == MembershipStatus.ACTIVE:
+        membership.joined_at = now
+        membership.left_at = None
+    elif payload.status == MembershipStatus.REJECTED:
+        membership.left_at = now
+
+    db.commit()
+    db.refresh(membership)
+
+    return ChildClassMembershipRead.model_validate(membership)
