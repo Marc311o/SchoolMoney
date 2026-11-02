@@ -40,6 +40,21 @@ export type ChildUpdate = {
   avatar_url?: string | null
 }
 
+export type ClassJoinRequest = {
+  child_id: string
+  code: string
+}
+
+export type ChildClassMembership = {
+  id: string
+  child_id: string
+  class_id: string
+  status: 'PENDING' | 'ACTIVE' | 'REJECTED'
+  requested_at: string
+  joined_at: string | null
+  left_at: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Query keys
 // ---------------------------------------------------------------------------
@@ -128,4 +143,23 @@ export function useRemoveChild() {
 
 export function isRemoveBlocked(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 409
+}
+
+export function useJoinClass() {
+  const queryClient = useQueryClient()
+
+  return useMutation<ChildClassMembership, ApiError, ClassJoinRequest>({
+    mutationFn: (data) => api.post<ChildClassMembership>('/classes/join', data),
+
+    onSuccess: () => {
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['children'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['classes'],
+        }),
+      ])
+    },
+  })
 }
