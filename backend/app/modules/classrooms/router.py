@@ -134,3 +134,21 @@ def review_membership(
         membership_id=membership_id,
         payload=payload,
     )
+
+
+@router.post(
+    "/{class_id}/memberships/{membership_id}/remove",
+    response_model=ChildClassMembershipRead,
+    summary="Remove a child from a class (treasurer or childs parent)",
+    responses={
+        404: {"description": "Membership not found or removal not allowed"},
+        409: {"description": "Membership cannot be removed in its current status"},
+    },
+)
+def remove_membership(
+    class_id: UUID,
+    membership_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+) -> ChildClassMembershipRead:
+    return service.remove_membership(db, user, class_id, membership_id)

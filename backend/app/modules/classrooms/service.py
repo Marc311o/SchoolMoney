@@ -371,3 +371,44 @@ def review_membership(
     db.refresh(membership)
 
     return ChildClassMembershipRead.model_validate(membership)
+
+
+def remove_membership(
+    db: Session,
+    user: User,
+    class_id: UUID,
+    membership_id: UUID,
+) -> ChildClassMembershipRead:
+    membership = db.scalar(
+        select(ChildClassMembership)
+        .join(ChildClassMembership.school_class)
+        .join(ChildClassMembership.child)
+        .where(
+            ChildClassMembership.id == membership_id,
+            ChildClassMembership.class_id == class_id,
+            (SchoolClass.treasurer_id == user.id) | (Child.parent_id == user.id),
+        )
+        .with_for_update(of=ChildClassMembership)
+        .execution_options(populate_existing=True)
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )
+
+    if membership.status != MembershipStatus.LEFT:
+        if membership.status not in CURRENT_MEMBERSHIP:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only active or pending memberships can be removed",
+            )
+
+        membership.status = MembershipStatus.LEFT
+        membership.left_at = datetime.now(UTC)
+
+    db.commit()
+    db.refresh(membership)
+
+    return ChildClassMembershipRead.model_validate(membership)
