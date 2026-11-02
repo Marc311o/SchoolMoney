@@ -12,6 +12,7 @@ import { useClasses } from '@/features/classes/api'
 import { ClassCard } from '@/features/classes/components/ClassCard'
 import SelectChildToJoinDialog from '@/features/classes/components/SelectChildToJoinDialog.tsx'
 import JoinClassDialog from '@/features/children/components/JoinClassDialog.tsx'
+import NoAvailableChildrenDialog from '@/features/classes/components/NoAvailableChildrenDialog'
 
 export function ClassesPage() {
   const { data: classes = [], isPending, isError } = useClasses()
@@ -29,7 +30,14 @@ export function ClassesPage() {
     (child) => child.school_class === null,
   )
 
+  const [isNoChildrenOpen, setIsNoChildrenOpen] = useState(false)
+
   const handleOpenJoin = () => {
+    if (availableChildren.length === 0) {
+      setIsNoChildrenOpen(true)
+      return
+    }
+
     setIsSelectChildOpen(true)
   }
 
@@ -68,6 +76,11 @@ export function ClassesPage() {
     )
   }
 
+  const handleGoToChildren = () => {
+    setIsNoChildrenOpen(false)
+    navigate('/children')
+  }
+
   return (
     <Stack spacing={4} sx={{ p: '1em' }}>
       <PageHeader
@@ -79,7 +92,6 @@ export function ClassesPage() {
               <AppButtonOutlined
                 label="Join with a code"
                 onClick={handleOpenJoin}
-                disabled={availableChildren.length === 0}
               />
               <AppButton label="New class" />
             </>
@@ -141,6 +153,13 @@ export function ClassesPage() {
         onConfirm={handleConfirmJoin}
         loading={joinClass.isPending}
         error={joinClass.error}
+      />
+
+      {/* NO AVAILABLE CHILDREN */}
+      <NoAvailableChildrenDialog
+        open={isNoChildrenOpen}
+        onClose={() => setIsNoChildrenOpen(false)}
+        onGoToChildren={handleGoToChildren}
       />
     </Stack>
   )
