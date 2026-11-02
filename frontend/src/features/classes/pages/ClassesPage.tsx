@@ -18,6 +18,7 @@ import SelectChildToJoinDialog from '@/features/classes/components/SelectChildTo
 import JoinClassDialog from '@/features/children/components/JoinClassDialog.tsx'
 import NoAvailableChildrenDialog from '@/features/classes/components/NoAvailableChildrenDialog'
 import CreateClassDialog from '@/features/classes/components/CreateClassDialog'
+import AppSnackbar from '@/components/AppSnackbar'
 
 export function ClassesPage() {
   const { data: classes = [], isPending, isError } = useClasses()
@@ -30,8 +31,9 @@ export function ClassesPage() {
   const [isSelectChildOpen, setIsSelectChildOpen] = useState(false)
   const [childToJoin, setChildToJoin] = useState<Child | null>(null)
 
-    const [isCreateClassOpen, setIsCreateClassOpen] = useState(false)
-    const createClass = useCreateClass()
+  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false)
+  const createClass = useCreateClass()
+  const [isCreateSuccessOpen, setIsCreateSuccessOpen] = useState(false)
 
   // Children who do not belong to any class
   const availableChildren = children.filter(
@@ -90,13 +92,14 @@ export function ClassesPage() {
   }
 
   const handleCreateClass = (payload: SchoolClassCreate) => {
-      createClass.mutate(payload, {
-        onSuccess: () => {
-          setIsCreateClassOpen(false)
-          createClass.reset()
-        },
-      })
-    }
+    createClass.mutate(payload, {
+      onSuccess: () => {
+        setIsCreateClassOpen(false)
+        setIsCreateSuccessOpen(true)
+        createClass.reset()
+      },
+    })
+  }
 
   return (
     <Stack spacing={4} sx={{ p: '1em' }}>
@@ -199,6 +202,14 @@ export function ClassesPage() {
         onConfirm={handleCreateClass}
         loading={createClass.isPending}
         error={createClass.error}
+      />
+
+      {/* CREATE CLASS SUCCESS SNACKBAR */}
+      <AppSnackbar
+        open={isCreateSuccessOpen}
+        message="Class created successfully!"
+        severity="success"
+        onClose={() => setIsCreateSuccessOpen(false)}
       />
     </Stack>
   )
