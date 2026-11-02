@@ -6,15 +6,18 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import type { ReactNode } from 'react'
 import { Link as RouterLink, useParams } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
-import WhiteCard from '@/components/WhiteCard'
+import EmptyState from '@/components/EmptyState'
+import PageHeader from '@/components/PageHeader'
+import PageSection from '@/components/PageSection'
+import StatusBadge from '@/components/StatusBadge'
 import { useCurrentUser } from '@/features/auth/api'
 import { isClassNotFound, useClass } from '@/features/classes/api'
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
+import { fullName } from '@/lib/names'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
@@ -28,7 +31,7 @@ export function ClassPage() {
   if (error) {
     return (
       <Stack spacing={2} sx={{ p: '1em', alignItems: 'flex-start' }}>
-        <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700 }}>
+        <Typography variant="h1">
           {isClassNotFound(error)
             ? 'Class not found'
             : 'Could not load the class'}
@@ -43,7 +46,7 @@ export function ClassPage() {
   const isTreasurer = schoolClass.my_role === 'TREASURER'
   const members = schoolClass.children.filter((m) => m.status === 'ACTIVE')
   const waiting = schoolClass.children.filter((m) => m.status === 'PENDING')
-  const treasurerName = `${schoolClass.treasurer.first_name} ${schoolClass.treasurer.last_name}`
+  const treasurerName = fullName(schoolClass.treasurer)
 
   return (
     <Stack spacing={4} sx={{ p: '1em' }}>
@@ -56,46 +59,13 @@ export function ClassPage() {
         </Typography>
       </Breadcrumbs>
 
-      {/* Header */}
-      <Stack spacing={1.5}>
-        <Stack
-          direction="row"
-          sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}
-        >
-          <Typography
-            component="h1"
-            sx={{
-              fontFamily: 'Bricolage Grotesque, Segoe UI, sans-serif',
-              fontSize: { xs: 28, md: 36 },
-              fontWeight: 700,
-            }}
-          >
-            Class {schoolClass.name}
-          </Typography>
-          {isTreasurer && (
-            <Typography
-              component="span"
-              sx={{
-                px: 1.25,
-                py: 0.25,
-                borderRadius: 999,
-                bgcolor: 'warning.light',
-                color: 'warning.dark',
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              You are treasurer
-            </Typography>
-          )}
-        </Stack>
-
-        <Typography sx={{ color: 'text.secondary' }}>
-          {[schoolClass.school_name, childrenCount(members.length)]
-            .filter(Boolean)
-            .join(' · ')}
-        </Typography>
-
+      <PageHeader
+        title={`Class ${schoolClass.name}`}
+        badge={isTreasurer && <StatusBadge>You are treasurer</StatusBadge>}
+        subtitle={[schoolClass.school_name, childrenCount(members.length)]
+          .filter(Boolean)
+          .join(' · ')}
+      >
         {!isTreasurer && (
           <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
             <AppAvatar
@@ -111,93 +81,28 @@ export function ClassPage() {
             </Typography>
           </Stack>
         )}
-      </Stack>
-
-      {/*TODO: LEFT FOR LATER */}
-      {/*{isTreasurer && (*/}
-      {/*  <Box*/}
-      {/*    sx={{*/}
-      {/*      display: 'grid',*/}
-      {/*      gap: 2.5,*/}
-      {/*      gridTemplateColumns:*/}
-      {/*        'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',*/}
-      {/*    }}*/}
-      {/*  >*/}
-      {/*    <Section title="Access code">*/}
-      {/*      <ComingSoon />*/}
-      {/*    </Section>*/}
-      {/*    <Section title="Invite a parent">*/}
-      {/*      <ComingSoon />*/}
-      {/*    </Section>*/}
-      {/*  </Box>*/}
-      {/*)}*/}
+      </PageHeader>
 
       {isTreasurer && (
-        <Section title="Waiting for approval" count={waiting.length}>
+        <PageSection title="Waiting for approval" count={waiting.length}>
           {/* TODO: pass onApprove / onReject when the endpoint exists */}
           <WaitingList members={waiting} />
-        </Section>
+        </PageSection>
       )}
 
-      <Section title="Children" count={members.length}>
+      <PageSection title="Children" count={members.length}>
         <ClassChildrenList
           members={members}
           currentUserId={me?.id}
           emptyText="No children in this class yet."
           showRemove={isTreasurer}
         />
-      </Section>
+      </PageSection>
 
-      <Section title="Fundraisers">
-        <ComingSoon />
-      </Section>
+      <PageSection title="Fundraisers">
+        <EmptyState dashed description="Coming soon." />
+      </PageSection>
     </Stack>
-  )
-}
-
-function Section({
-  title,
-  count,
-  children,
-}: {
-  title: string
-  count?: number
-  children: ReactNode
-}) {
-  return (
-    <Stack component="section" spacing={1.5}>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'baseline' }}>
-        <Typography
-          component="h2"
-          sx={{
-            fontFamily: 'Bricolage Grotesque, Segoe UI, sans-serif',
-            fontSize: 22,
-            fontWeight: 700,
-          }}
-        >
-          {title}
-        </Typography>
-        {count !== undefined && (
-          <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-            {count}
-          </Typography>
-        )}
-      </Stack>
-      {children}
-    </Stack>
-  )
-}
-
-function ComingSoon() {
-  return (
-    <WhiteCard
-      padding={2.5}
-      sx={{ bgcolor: 'transparent', borderStyle: 'dashed' }}
-    >
-      <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-        Coming soon.
-      </Typography>
-    </WhiteCard>
   )
 }
 

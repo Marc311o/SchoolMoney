@@ -12,8 +12,10 @@ import PersonRemoveOutlined from '@mui/icons-material/PersonRemoveOutlined'
 
 import AppAvatar from '@/components/AppAvatar'
 import WhiteCard from '@/components/WhiteCard'
-import type { ClassMemberWithParent, UserSummary } from '@/features/classes/api'
+import type { ClassMemberWithParent } from '@/features/classes/api'
 import { formatDate } from '@/lib/dates'
+import { shortName, fullName } from '@/lib/names.ts'
+import EmptyState from '@/components/EmptyState'
 
 // Shared by the header and the rows, so the labels stay above their column
 const COLUMNS = {
@@ -44,15 +46,11 @@ export function ClassChildrenList({
   onRemove,
 }: ClassChildrenListProps) {
   const theme = useTheme()
-  // Phones: short names and an icon instead of the Remove button
+
   const compact = useMediaQuery(theme.breakpoints.down('md'))
 
   if (members.length === 0) {
-    return (
-      <WhiteCard padding={2.5}>
-        <Typography sx={{ color: 'text.secondary' }}>{emptyText}</Typography>
-      </WhiteCard>
-    )
+    return <EmptyState description={emptyText} />
   }
 
   return (
@@ -194,15 +192,4 @@ function ChildRow({
       )}
     </Stack>
   )
-}
-
-type Person = Pick<UserSummary, 'first_name' | 'last_name'>
-
-function fullName(person: Person): string {
-  return `${person.first_name} ${person.last_name}`
-}
-
-/** "Zosia Nowak" -> "Zosia N." */
-function shortName(person: Person): string {
-  return `${person.first_name} ${person.last_name.charAt(0)}.`
 }

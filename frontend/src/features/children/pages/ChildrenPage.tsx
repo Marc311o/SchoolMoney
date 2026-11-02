@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Box, CircularProgress, Stack, Typography } from '@mui/material'
 
 import AppButton from '@/components/AppButton'
-import WhiteCard from '@/components/WhiteCard'
 
 import {
   type Child,
@@ -18,6 +17,7 @@ import { ChildCard } from '@/features/children/components/ChildCard'
 import RemoveChildDialog from '@/features/children/components/RemoveChildDialog'
 import AddChildDialog from '@/features/children/components/AddChildDialog'
 import EditChildDialog from '@/features/children/components/EditChildDialog'
+import EmptyState from '@/components/EmptyState.tsx'
 
 export function ChildrenPage() {
   const { data: children = [], isPending, isError } = useChildren()
@@ -146,23 +146,11 @@ export function ChildrenPage() {
         ) : isError ? (
           <Typography color="error">Could not load your children.</Typography>
         ) : children.length === 0 ? (
-          <WhiteCard>
-            <Stack
-              spacing={1.5}
-              sx={{ alignItems: 'center', textAlign: 'center', py: 2 }}
-            >
-              <Typography component="h2" sx={{ fontSize: 22, fontWeight: 700 }}>
-                Add your first child
-              </Typography>
-
-              <Typography sx={{ maxWidth: 420, color: 'text.secondary' }}>
-                You need a child on your account before you can join a class and
-                pay for its fundraisers.
-              </Typography>
-
-              <AppButton label="Add child" onClick={handleAdd} />
-            </Stack>
-          </WhiteCard>
+          <EmptyState
+            title="Add your first child"
+            description="You need a child on your account before you can join a class and pay for its fundraisers."
+            actions={<AppButton label="Add child" onClick={handleAdd} />}
+          />
         ) : (
           <Box
             sx={{

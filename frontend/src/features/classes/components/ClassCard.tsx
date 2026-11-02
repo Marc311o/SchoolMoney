@@ -1,15 +1,15 @@
 import { Box, Divider, Stack, Typography } from '@mui/material'
-import type { ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
+import StatusBadge from '@/components/StatusBadge'
 import WhiteCard from '@/components/WhiteCard'
 import {
   type ClassListItem,
   type ClassMember,
   canOpenClass,
-  isWaitingForApproval,
 } from '@/features/classes/api'
+import { fullName } from '@/lib/names'
 
 interface ClassCardProps {
   schoolClass: ClassListItem
@@ -18,11 +18,10 @@ interface ClassCardProps {
 export function ClassCard({ schoolClass }: ClassCardProps) {
   const isTreasurer = schoolClass.my_role === 'TREASURER'
   const canOpen = canOpenClass(schoolClass)
-  const treasurerName = `${schoolClass.treasurer.first_name} ${schoolClass.treasurer.last_name}`
-  const isWaiting = isWaitingForApproval(schoolClass)
+  const treasurerName = fullName(schoolClass.treasurer)
 
   const content = (
-    <WhiteCard sx={{ opacity: isWaiting ? 0.8 : 1 }}>
+    <WhiteCard>
       <Stack spacing={2.25} sx={{ height: '100%' }}>
         <Stack
           direction="row"
@@ -30,14 +29,7 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
           sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Typography
-              component="h2"
-              sx={{
-                fontFamily: 'Bricolage Grotesque, Segoe UI, sans-serif',
-                fontSize: 24,
-                fontWeight: 700,
-              }}
-            >
+            <Typography variant="h2" sx={{ fontSize: 24 }}>
               {schoolClass.name}
             </Typography>
             {schoolClass.school_name && (
@@ -46,8 +38,8 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
               </Typography>
             )}
           </Box>
-          {isTreasurer && <Badge>Treasurer</Badge>}
-          {!canOpen && <Badge>Waiting</Badge>}
+          {isTreasurer && <StatusBadge>Treasurer</StatusBadge>}
+          {!canOpen && <StatusBadge>Waiting</StatusBadge>}
         </Stack>
 
         <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
@@ -87,6 +79,7 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
   )
 
   if (!canOpen) {
+    // Not a link: the details would answer 404 until the treasurer approves
     return <Box sx={{ display: 'grid', opacity: 0.85 }}>{content}</Box>
   }
 
@@ -96,6 +89,7 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
       to={`/classes/${schoolClass.id}`}
       aria-label={`Class ${schoolClass.name}`}
       sx={{
+        // grid makes the card fill the row height, like the other cards
         display: 'grid',
         color: 'inherit',
         textDecoration: 'none',
@@ -115,7 +109,7 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
 }
 
 function ChildChip({ member }: { member: ClassMember }) {
-  const name = `${member.child.first_name} ${member.child.last_name}`
+  const name = fullName(member.child)
 
   return (
     <Stack
@@ -133,26 +127,6 @@ function ChildChip({ member }: { member: ClassMember }) {
       <AppAvatar name={name} src={member.child.avatar_url} size={24} />
       <Typography sx={{ fontSize: 14 }}>{member.child.first_name}</Typography>
     </Stack>
-  )
-}
-
-function Badge({ children }: { children: ReactNode }) {
-  return (
-    <Typography
-      component="span"
-      sx={{
-        flex: 'none',
-        px: 1.25,
-        py: 0.25,
-        borderRadius: 999,
-        bgcolor: 'warning.light',
-        color: 'warning.dark',
-        fontSize: 13,
-        fontWeight: 600,
-      }}
-    >
-      {children}
-    </Typography>
   )
 }
 

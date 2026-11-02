@@ -2,10 +2,12 @@ import { Box, Stack, Typography } from '@mui/material'
 
 import AppAvatar from '@/components/AppAvatar'
 import AppButton from '@/components/AppButton'
+import AppButtonOutlined from '@/components/AppButtonOutlined'
+import EmptyState from '@/components/EmptyState'
 import WhiteCard from '@/components/WhiteCard'
 import type { ClassMemberWithParent } from '@/features/classes/api'
 import { timeAgo } from '@/lib/dates'
-import AppButtonOutlined from '@/components/AppButtonOutlined.tsx'
+import { fullName } from '@/lib/names'
 
 interface WaitingListProps {
   members: ClassMemberWithParent[]
@@ -19,20 +21,14 @@ export function WaitingList({
   onReject,
 }: WaitingListProps) {
   if (members.length === 0) {
-    return (
-      <WhiteCard padding={2.5}>
-        <Typography sx={{ color: 'text.secondary' }}>
-          No pending requests.
-        </Typography>
-      </WhiteCard>
-    )
+    return <EmptyState description="No pending requests." />
   }
 
   return (
     <Stack spacing={1.5}>
       {members.map((member) => {
-        const childName = `${member.child.first_name} ${member.child.last_name}`
-        const parentName = `${member.parent.first_name} ${member.parent.last_name}`
+        const childName = fullName(member.child)
+        const parentName = fullName(member.parent)
 
         return (
           <WhiteCard
@@ -67,9 +63,9 @@ export function WaitingList({
 
               <Stack direction="row" spacing={1.25} component="span">
                 <AppButtonOutlined
-                  label={'Reject'}
+                  label="Reject"
                   onClick={() => onReject?.(member)}
-                ></AppButtonOutlined>
+                />
                 <AppButton
                   label="Approve"
                   onClick={() => onApprove?.(member)}
