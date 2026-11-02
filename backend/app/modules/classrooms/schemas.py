@@ -1,8 +1,9 @@
+import re
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import StringConstraints, field_validator, model_validator
+from pydantic import StrictBool, StringConstraints, field_validator, model_validator
 
 from app.common.schemas import SchemaBase
 from app.modules.children.schemas import ChildSummaryRead
@@ -12,6 +13,13 @@ from app.modules.users.schemas import UserSummaryRead
 ClassName = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=100),
+]
+SchoolYear = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        pattern=r"^[0-9]{4}/[0-9]{4}$",
+    ),
 ]
 SchoolName = Annotated[
     str,
@@ -35,6 +43,37 @@ def _reject_explicit_nulls(data: Any, fields: tuple[str, ...]) -> Any:
 class SchoolClassCreate(SchemaBase):
     name: ClassName
     school_name: SchoolName | None = None
+    school_year: SchoolYear | None = None
+    append_school_year: StrictBool = False
+
+    @field_validator("school_year")
+    @classmethod
+    def validate_school_year(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        start, end = map(int, value.split("/"))
+
+        if not 1 <= start <= 9998 or end != start + 1:
+            raise ValueError("school_year must contain consecutive years, e.g. 2026/2027")
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_name_with_school_year(self) -> "SchoolClassCreate":
+        if self.append_school_year:
+            if self.school_year is None:
+                raise ValueError("school_year is required when append_school_year is true")
+
+            if re.search(r"_\d{4}/\d{4}$", self.name):
+                raise ValueError("Provide the class name without a school-year suffix")
+
+            if len(self.name) > 90:
+                raise ValueError(
+                    "Class name must be at most 90 characters when appending a school year"
+                )
+
+        return self
 
 
 class SchoolClassUpdate(SchemaBase):
@@ -50,6 +89,7 @@ class SchoolClassUpdate(SchemaBase):
 class SchoolClassRead(SchemaBase):
     id: UUID
     name: str
+    school_year_start: int | None
     school_name: str | None
     treasurer_id: UUID
     created_at: datetime
