@@ -1,5 +1,7 @@
 import { createTheme } from '@mui/material/styles'
 
+export const DISPLAY_FONT = 'Bricolage Grotesque, Segoe UI, sans-serif'
+
 export const theme = createTheme({
   cssVariables: {
     colorSchemeSelector: 'class',
@@ -109,13 +111,18 @@ export const theme = createTheme({
     fontWeightBold: 700,
 
     h1: {
-      fontSize: '2.5rem',
+      fontFamily: DISPLAY_FONT,
+      fontSize: '1.75rem',
+      lineHeight: 1.2,
       fontWeight: 700,
+      '@media (min-width:900px)': { fontSize: '2.25rem' },
     },
 
     h2: {
-      fontSize: '2rem',
-      fontWeight: 600,
+      fontFamily: DISPLAY_FONT,
+      fontSize: '1.375rem',
+      lineHeight: 1.3,
+      fontWeight: 700,
     },
 
     body1: {

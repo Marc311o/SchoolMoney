@@ -98,7 +98,9 @@ export default function Sidebar({
         }}
       >
         {items.map((item) => {
-          const isActive = activePath === item.path
+          const isActive =
+            activePath === item.path ||
+            (item.path !== '/' && activePath.startsWith(`${item.path}/`))
 
           return (
             <ListItemButton
