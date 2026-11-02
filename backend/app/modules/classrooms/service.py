@@ -386,7 +386,7 @@ def remove_membership(
         .where(
             ChildClassMembership.id == membership_id,
             ChildClassMembership.class_id == class_id,
-            SchoolClass.treasurer_id == user.id,
+            (SchoolClass.treasurer_id == user.id) | (Child.parent_id == user.id),
         )
         .with_for_update(of=ChildClassMembership)
         .execution_options(populate_existing=True)

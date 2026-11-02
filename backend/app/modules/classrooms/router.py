@@ -139,7 +139,7 @@ def review_membership(
 @router.post(
     "/{class_id}/memberships/{membership_id}/remove",
     response_model=ChildClassMembershipRead,
-    summary="Remove a child from a class (treasurer only)",
+    summary="Remove a child from a class (treasurer or childs parent)",
     responses={
         404: {"description": "Membership not found or removal not allowed"},
         409: {"description": "Membership cannot be removed in its current status"},
