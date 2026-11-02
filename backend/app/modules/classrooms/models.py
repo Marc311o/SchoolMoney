@@ -3,9 +3,11 @@ from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
+    SmallInteger,
     String,
     UniqueConstraint,
     Uuid,
@@ -24,6 +26,13 @@ from app.modules.classrooms.enums import MembershipStatus
 class SchoolClass(Base):
     __tablename__ = "classes"
 
+    __table_args__ = (
+        CheckConstraint(
+            "school_year_start IS NULL OR school_year_start BETWEEN 1 AND 9998",
+            name="school_year_start_valid",
+        ),
+    )
+
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
@@ -32,6 +41,11 @@ class SchoolClass(Base):
     name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
+    )
+
+    school_year_start: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
     )
 
     school_name: Mapped[str | None] = mapped_column(
