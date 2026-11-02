@@ -8,9 +8,11 @@ from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.classrooms import service
 from app.modules.classrooms.schemas import (
+    ChildClassMembershipRead,
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassJoinRequest,
     ClassListItemRead,
     SchoolClassCreate,
     SchoolClassRead,
@@ -88,3 +90,21 @@ def regenerate_access_code(
 ) -> ClassAccessCodeRead:
     response.headers["Cache-Control"] = "no-store"
     return service.regenerate_access_code(db, user, class_id, data)
+
+
+@router.post(
+    "/join",
+    response_model=ChildClassMembershipRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Request to join a class using an access code",
+    responses={
+        404: {"description": "Invalid/expired access code or child not found"},
+        409: {"description": "Child already in a class or pending approval"},
+    },
+)
+def join_class(
+    payload: ClassJoinRequest,
+    user: CurrentUser,
+    db: DbSession,
+) -> ChildClassMembershipRead:
+    return service.join_class(db, user, payload)
