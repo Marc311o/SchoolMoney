@@ -144,10 +144,14 @@ def create_class(
     user: User,
     payload: SchoolClassCreate,
 ) -> SchoolClassRead:
-    """Create a class owned by the current user, who becomes its treasurer."""
+    school_year_start = int(payload.school_year.split("/")[0]) if payload.school_year else None
+
+    name = f"{payload.name}_{payload.school_year}" if payload.append_school_year else payload.name
+
     school_class = SchoolClass(
         id=uuid4(),
-        name=payload.name,
+        name=name,
+        school_year_start=school_year_start,
         school_name=payload.school_name,
         treasurer_id=user.id,
     )
