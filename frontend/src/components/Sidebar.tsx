@@ -21,6 +21,7 @@ import ChatRoundedIcon from '@mui/icons-material/ChatRounded'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
+import * as React from 'react'
 
 export interface SidebarItem {
   label: string
@@ -91,8 +92,8 @@ export default function Sidebar({
           display: 'flex',
           flexDirection: 'column',
           border: 0,
-          background: (theme) =>
-            `linear-gradient(180deg, ${theme.palette.primary.dark} 67%, ${theme.palette.primary.main} 100%)`,
+          background: (muiTheme) =>
+            `linear-gradient(180deg, ${muiTheme.palette.primary.dark} 67%, ${muiTheme.palette.primary.main} 100%)`,
           color: 'primary.contrastText',
           p: isCompact ? 1 : 2,
           overflowX: 'hidden',
