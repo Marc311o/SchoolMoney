@@ -20,6 +20,7 @@ from app.modules.classrooms.schemas import (
     ClassListItemRead,
     ClassMemberRead,
     ClassMemberWithParentRead,
+    MembershipReviewRequest,
     SchoolClassCreate,
     SchoolClassRead,
 )
@@ -323,6 +324,49 @@ def join_class(
         requested_at=now,
     )
     db.add(membership)
+    db.commit()
+    db.refresh(membership)
+
+    return ChildClassMembershipRead.model_validate(membership)
+
+
+def review_membership(
+    db: Session,
+    user: User,
+    class_id: UUID,
+    membership_id: UUID,
+    payload: MembershipReviewRequest,
+) -> ChildClassMembershipRead:
+    """Approve (ACTIVE) or reject (REJECTED) a pending join request. Treasurer only."""
+    _require_treasurer(db, user, class_id)
+
+    membership = db.scalar(
+        select(ChildClassMembership).where(
+            ChildClassMembership.id == membership_id,
+            ChildClassMembership.class_id == class_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership request not found",
+        )
+
+    if membership.status != MembershipStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot review membership with status {membership.status.value}",
+        )
+
+    now = datetime.now(UTC)
+    membership.status = payload.status
+
+    if payload.status == MembershipStatus.ACTIVE:
+        membership.joined_at = now
+        membership.left_at = None
+    elif payload.status == MembershipStatus.REJECTED:
+        membership.left_at = now
+
     db.commit()
     db.refresh(membership)
 

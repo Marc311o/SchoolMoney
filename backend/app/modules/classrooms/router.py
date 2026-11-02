@@ -14,6 +14,7 @@ from app.modules.classrooms.schemas import (
     ClassDetailRead,
     ClassJoinRequest,
     ClassListItemRead,
+    MembershipReviewRequest,
     SchoolClassCreate,
     SchoolClassRead,
 )
@@ -108,3 +109,28 @@ def join_class(
     db: DbSession,
 ) -> ChildClassMembershipRead:
     return service.join_class(db, user, payload)
+
+
+@router.patch(
+    "/{class_id}/members/{membership_id}",
+    response_model=ChildClassMembershipRead,
+    summary="Approve or reject a pending membership request (treasurer only)",
+    responses={
+        404: {"description": "Class or membership request not found"},
+        409: {"description": "Membership is not pending"},
+    },
+)
+def review_membership(
+    class_id: UUID,
+    membership_id: UUID,
+    payload: MembershipReviewRequest,
+    user: CurrentUser,
+    db: DbSession,
+) -> ChildClassMembershipRead:
+    return service.review_membership(
+        db=db,
+        user=user,
+        class_id=class_id,
+        membership_id=membership_id,
+        payload=payload,
+    )
