@@ -36,7 +36,10 @@ export function LeaveClassSection({
 
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1, ml: -1 }}>
         {myChildren.map((member) => (
-         <Tooltip title={member.child.first_name + ' ' + member.child.last_name} >
+          <Tooltip
+            key={member.id}
+            title={member.child.first_name + ' ' + member.child.last_name}
+          >
             <Button
               key={member.id}
               size="small"
