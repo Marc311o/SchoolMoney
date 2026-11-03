@@ -157,7 +157,7 @@ export function ClassPage() {
         </Box>
       )}
 
-      {isTreasurer && (
+      {isTreasurer && waiting.length > 0 && (
         <PageSection title="Waiting for approval" count={waiting.length}>
           <WaitingList
             members={waiting}
