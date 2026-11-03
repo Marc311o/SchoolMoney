@@ -35,7 +35,7 @@ export function WalletPage() {
                 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
             }}
           >
-            <TopUpCard walletIban={wallet?.iban} onDone={notify} />
+            <TopUpCard onDone={notify} />
             <TransferOutCard balance={wallet?.balance} onDone={notify} />
           </Box>
         </>
