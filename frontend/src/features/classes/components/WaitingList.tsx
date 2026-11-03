@@ -13,12 +13,14 @@ interface WaitingListProps {
   members: ClassMemberWithParent[]
   onApprove?: (member: ClassMemberWithParent) => void
   onReject?: (member: ClassMemberWithParent) => void
+  approvingId?: string | null
 }
 
 export function WaitingList({
   members,
   onApprove,
   onReject,
+  approvingId = null,
 }: WaitingListProps) {
   if (members.length === 0) {
     return <EmptyState description="No pending requests." />
@@ -64,10 +66,12 @@ export function WaitingList({
               <Stack direction="row" spacing={1.25} component="span">
                 <AppButtonOutlined
                   label="Reject"
+                  disabled={approvingId === member.id}
                   onClick={() => onReject?.(member)}
                 />
                 <AppButton
                   label="Approve"
+                  loading={approvingId === member.id}
                   onClick={() => onApprove?.(member)}
                 />
               </Stack>

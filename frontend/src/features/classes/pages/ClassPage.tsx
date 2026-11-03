@@ -14,8 +14,14 @@ import EmptyState from '@/components/EmptyState'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { useCurrentUser } from '@/features/auth/api'
-import { isClassNotFound, useClass } from '@/features/classes/api'
+import {
+  type ClassMemberWithParent,
+  isClassNotFound,
+  useClass,
+  useReviewMembership,
+} from '@/features/classes/api'
 import { AccessCodeCard } from '@/features/classes/components/AccessCodeCard'
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
@@ -26,10 +32,39 @@ export function ClassPage() {
   const { classId = '' } = useParams()
   const { data: schoolClass, isPending, error } = useClass(classId)
   const { data: me } = useCurrentUser()
+  const review = useReviewMembership(classId)
   const [toast, setToast] = useState<{
     message: string
     severity: SnackbarSeverity
+    id: number
   } | null>(null)
+  const [toReject, setToReject] = useState<ClassMemberWithParent | null>(null)
+
+  const notify = (message: string, severity: SnackbarSeverity = 'success') =>
+    setToast({ message, severity, id: Date.now() })
+
+  const approve = (member: ClassMemberWithParent) => {
+    review.mutate(
+      { membershipId: member.id, status: 'ACTIVE' },
+      {
+        onSuccess: () => notify(`${member.child.first_name} joined the class`),
+        onError: () => notify('Could not approve the request', 'error'),
+      },
+    )
+  }
+
+  const reject = () => {
+    if (!toReject) return
+    review.mutate(
+      { membershipId: toReject.id, status: 'REJECTED' },
+      {
+        onSuccess: () => {
+          notify(`Request for ${toReject.child.first_name} rejected`)
+          setToReject(null)
+        },
+      },
+    )
+  }
 
   if (isPending) {
     return <CircularProgress sx={{ m: 4 }} />
@@ -88,20 +123,26 @@ export function ClassPage() {
               'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
           }}
         >
-          <AccessCodeCard
-            classId={classId}
-            onNotify={(message, severity = 'success') =>
-              setToast({ message, severity })
-            }
-          />
+          <AccessCodeCard classId={classId} onNotify={notify} />
           <EmptyState dashed description="Inviting parents: coming soon." />
         </Box>
       )}
 
       {isTreasurer && (
         <PageSection title="Waiting for approval" count={waiting.length}>
-          {/* TODO: pass onApprove / onReject when the endpoint is wired */}
-          <WaitingList members={waiting} />
+          <WaitingList
+            members={waiting}
+            onApprove={approve}
+            onReject={(member) => {
+              review.reset()
+              setToReject(member)
+            }}
+            approvingId={
+              review.isPending && review.variables.status === 'ACTIVE'
+                ? review.variables.membershipId
+                : null
+            }
+          />
         </PageSection>
       )}
 
@@ -118,11 +159,28 @@ export function ClassPage() {
         <EmptyState dashed description="Coming soon." />
       </PageSection>
 
+      <ConfirmDialog
+        open={toReject !== null}
+        title={`Reject ${toReject ? fullName(toReject.child) : ''}?`}
+        description={`${toReject?.child.first_name ?? 'The child'} will not join the class. The parent can ask again with the access code.`}
+        confirmLabel="Reject"
+        destructive
+        loading={review.isPending}
+        error={
+          review.isError
+            ? 'Could not reject the request. Please try again.'
+            : null
+        }
+        onConfirm={reject}
+        onClose={() => setToReject(null)}
+      />
+
       <AppSnackbar
+        key={toast?.id}
         open={toast !== null}
         message={toast?.message ?? ''}
         severity={toast?.severity}
-        variant="filled"
+        variant="standard"
         onClose={() => setToast(null)}
       />
     </Stack>

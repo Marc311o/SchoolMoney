@@ -55,6 +55,12 @@ export type SchoolClassCreate = {
   school_year?: string | null
 }
 
+/** PATCH /classes/{id}/members/{membership_id}: approve or reject a PENDING child */
+export type MembershipReviewStatus = 'ACTIVE' | 'REJECTED'
+
+/** A membership without the nested child, as returned by the review endpoint */
+export type ChildClassMembership = Omit<ClassMember, 'child'>
+
 /** GET / POST /classes/{id}/access-code (treasurer only) */
 export type ClassAccessCode = {
   id: string
@@ -164,6 +170,31 @@ export function useRegenerateAccessCode(classId: string) {
     onSuccess: (accessCode) => {
       queryClient.setQueryData(classesKeys.accessCode(classId), accessCode)
     },
+  })
+}
+
+/**
+ * Treasurer approves (ACTIVE) or rejects (REJECTED) a PENDING join request.
+ * 409 = the request was already reviewed (e.g. in another tab): the lists refresh anyway.
+ */
+export function useReviewMembership(classId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<
+    ChildClassMembership,
+    ApiError,
+    { membershipId: string; status: MembershipReviewStatus }
+  >({
+    mutationFn: ({ membershipId, status }) =>
+      api.patch<ChildClassMembership>(
+        `/classes/${classId}/members/${membershipId}`,
+        { status },
+      ),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: classesKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['children'] }),
+      ]),
   })
 }
 
