@@ -1,11 +1,13 @@
 import { Alert, Snackbar } from '@mui/material'
 
 export type SnackbarSeverity = 'success' | 'error' | 'info' | 'warning'
+export type SnackbarVariant = 'filled' | 'standard' | 'outlined'
 
 interface AppSnackbarProps {
   open: boolean
   message: string
   severity?: SnackbarSeverity
+  variant?: SnackbarVariant
   onClose: () => void
   autoHideDuration?: number
 }
@@ -14,6 +16,7 @@ export default function AppSnackbar({
   open,
   message,
   severity = 'success',
+  variant = 'filled',
   onClose,
   autoHideDuration = 3000,
 }: AppSnackbarProps) {
@@ -30,7 +33,7 @@ export default function AppSnackbar({
       <Alert
         onClose={onClose}
         severity={severity}
-        variant="filled"
+        variant={variant}
         sx={{ width: '100%' }}
       >
         {message}

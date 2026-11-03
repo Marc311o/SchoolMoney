@@ -9,38 +9,34 @@ import {
 import { Link as RouterLink, useParams } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
+import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
 import EmptyState from '@/components/EmptyState'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
 import { useCurrentUser } from '@/features/auth/api'
 import { isClassNotFound, useClass } from '@/features/classes/api'
+import { AccessCodeCard } from '@/features/classes/components/AccessCodeCard'
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
 import { fullName } from '@/lib/names'
+import { useState } from 'react'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
   const { data: schoolClass, isPending, error } = useClass(classId)
   const { data: me } = useCurrentUser()
+  const [toast, setToast] = useState<{
+    message: string
+    severity: SnackbarSeverity
+  } | null>(null)
 
   if (isPending) {
     return <CircularProgress sx={{ m: 4 }} />
   }
 
   if (error) {
-    return (
-      <Stack spacing={2} sx={{ p: '1em', alignItems: 'flex-start' }}>
-        <Typography variant="h1">
-          {isClassNotFound(error)
-            ? 'Class not found'
-            : 'Could not load the class'}
-        </Typography>
-        <Link component={RouterLink} to="/classes">
-          Back to classes
-        </Link>
-      </Stack>
-    )
+    return <ClassLoadError notFound={isClassNotFound(error)} />
   }
 
   const isTreasurer = schoolClass.my_role === 'TREASURER'
@@ -84,8 +80,27 @@ export function ClassPage() {
       </PageHeader>
 
       {isTreasurer && (
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 2.5,
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
+          }}
+        >
+          <AccessCodeCard
+            classId={classId}
+            onNotify={(message, severity = 'success') =>
+              setToast({ message, severity })
+            }
+          />
+          <EmptyState dashed description="Inviting parents: coming soon." />
+        </Box>
+      )}
+
+      {isTreasurer && (
         <PageSection title="Waiting for approval" count={waiting.length}>
-          {/* TODO: pass onApprove / onReject when the endpoint exists */}
+          {/* TODO: pass onApprove / onReject when the endpoint is wired */}
           <WaitingList members={waiting} />
         </PageSection>
       )}
@@ -102,6 +117,27 @@ export function ClassPage() {
       <PageSection title="Fundraisers">
         <EmptyState dashed description="Coming soon." />
       </PageSection>
+
+      <AppSnackbar
+        open={toast !== null}
+        message={toast?.message ?? ''}
+        severity={toast?.severity}
+        variant="filled"
+        onClose={() => setToast(null)}
+      />
+    </Stack>
+  )
+}
+
+function ClassLoadError({ notFound }: { notFound: boolean }) {
+  return (
+    <Stack spacing={2} sx={{ p: '1em', alignItems: 'flex-start' }}>
+      <Typography variant="h1">
+        {notFound ? 'Class not found' : 'Could not load the class'}
+      </Typography>
+      <Link component={RouterLink} to="/classes">
+        Back to classes
+      </Link>
     </Stack>
   )
 }
