@@ -55,6 +55,22 @@ export type SchoolClassCreate = {
   school_year?: string | null
 }
 
+/** GET / POST /classes/{id}/access-code (treasurer only) */
+export type ClassAccessCode = {
+  id: string
+  class_id: string
+  code: string
+  /** null = never expires */
+  valid_until: string | null
+  active: boolean
+  created_at: string
+}
+
+export type ClassAccessCodeCreate = {
+  /** ISO date-time with a time zone, in the future. Omit for a code that never expires. */
+  valid_until?: string | null
+}
+
 /** GET /classes */
 export type ClassListItem = SchoolClassBase & {
   /** My children in this class: ACTIVE or PENDING */
@@ -77,6 +93,7 @@ export const classesKeys = {
   all: ['classes'] as const,
   list: () => [...classesKeys.all, 'list'] as const,
   detail: (id: string) => [...classesKeys.all, 'detail', id] as const,
+  accessCode: (id: string) => [...classesKeys.all, 'access-code', id] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +116,23 @@ export function useClass(id: string) {
   })
 }
 
+/**
+ * The class's current access code, or null when it has none (or it expired).
+ * Treasurer only: pass `enabled: false` for parents, the API answers them 404.
+ */
+export function useClassAccessCode(
+  classId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  return useQuery<ClassAccessCode | null, ApiError>({
+    queryKey: classesKeys.accessCode(classId),
+    queryFn: () =>
+      api.get<ClassAccessCode | null>(`/classes/${classId}/access-code`),
+    enabled,
+    retry: (failureCount, error) => !isClassNotFound(error) && failureCount < 1,
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
@@ -113,6 +147,22 @@ export function useCreateClass() {
       queryClient.invalidateQueries({
         queryKey: classesKeys.list(),
       })
+    },
+  })
+}
+
+/** Creates a new code and switches the old one off: parents must use the new one */
+export function useRegenerateAccessCode(classId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<ClassAccessCode, ApiError, ClassAccessCodeCreate | void>({
+    mutationFn: (payload) =>
+      api.post<ClassAccessCode>(
+        `/classes/${classId}/access-code`,
+        payload ?? {},
+      ),
+    onSuccess: (accessCode) => {
+      queryClient.setQueryData(classesKeys.accessCode(classId), accessCode)
     },
   })
 }
