@@ -32,6 +32,19 @@ type ClassErrors = {
   general?: string
 }
 
+function getSchoolYears() {
+  const currentYear = new Date().getFullYear()
+
+  return Array.from({ length: 10 }, (_, index) => {
+    const start = currentYear - 5 + index
+
+    return {
+      value: `${start}/${start + 1}`,
+      label: `${start}/${start + 1}`,
+    }
+  })
+}
+
 function serverErrors(error: ApiError): ClassErrors {
   if (error.status === 422) {
     return getFieldErrors(error)
@@ -59,6 +72,8 @@ export default function CreateClassDialog({
   const nameError =
     submitted && !name.trim() ? 'Class name is required.' : apiErrors.name
 
+  const schoolYears = getSchoolYears()
+
   const schoolYearError = (() => {
     if (schoolYear) {
       const match = /^(\d{4})\/(\d{4})$/.exec(schoolYear)
@@ -77,17 +92,6 @@ export default function CreateClassDialog({
 
     return apiErrors.school_year
   })()
-
-  const currentYear = new Date().getFullYear()
-
-  const schoolYears = Array.from({ length: 10 }, (_, index) => {
-    const start = currentYear - 5 + index
-
-    return {
-      value: `${start}/${start + 1}`,
-      label: `${start}/${start + 1}`,
-    }
-  })
 
   const handleClose = () => {
     if (loading) return
