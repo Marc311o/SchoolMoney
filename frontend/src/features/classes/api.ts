@@ -42,6 +42,7 @@ type SchoolClassBase = {
   id: string
   name: string
   school_name: string | null
+  school_year_start: string | null
   treasurer_id: string
   created_at: string
   my_role: ClassRole

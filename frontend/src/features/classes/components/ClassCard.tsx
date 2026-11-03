@@ -32,11 +32,19 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
             <Typography variant="h2" sx={{ fontSize: 24 }}>
               {schoolClass.name}
             </Typography>
-            {schoolClass.school_name && (
+
+            {(schoolClass.school_name ||
+              schoolClass.school_year_start != null) && (
               <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
                 {schoolClass.school_name}
+                {schoolClass.school_name &&
+                  schoolClass.school_year_start != null &&
+                  ' · '}
+                {schoolClass.school_year_start != null &&
+                  `${schoolClass.school_year_start}/${schoolClass.school_year_start + 1}`}
               </Typography>
             )}
+              
           </Box>
           {isTreasurer && <StatusBadge>Treasurer</StatusBadge>}
           {!canOpen && <StatusBadge>Waiting</StatusBadge>}
