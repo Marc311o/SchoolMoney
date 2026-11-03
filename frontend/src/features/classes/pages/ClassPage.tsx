@@ -6,7 +6,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { Link as RouterLink, useParams } from 'react-router'
+import { Link as RouterLink, useNavigate, useParams } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
 import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
@@ -20,9 +20,11 @@ import {
   type ClassMemberWithParent,
   isClassNotFound,
   useClass,
+  useRemoveMembership,
   useReviewMembership,
 } from '@/features/classes/api'
 import { AccessCodeCard } from '@/features/classes/components/AccessCodeCard'
+import { LeaveClassSection } from '@/features/classes/components/LeaveClassSection'
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
 import { fullName } from '@/lib/names'
@@ -33,12 +35,16 @@ export function ClassPage() {
   const { data: schoolClass, isPending, error } = useClass(classId)
   const { data: me } = useCurrentUser()
   const review = useReviewMembership(classId)
+  const navigate = useNavigate()
   const [toast, setToast] = useState<{
     message: string
     severity: SnackbarSeverity
     id: number
   } | null>(null)
+
+  const removeMembership = useRemoveMembership(classId)
   const [toReject, setToReject] = useState<ClassMemberWithParent | null>(null)
+  const [toRemove, setToRemove] = useState<ClassMemberWithParent | null>(null)
 
   const notify = (message: string, severity: SnackbarSeverity = 'success') =>
     setToast({ message, severity, id: Date.now() })
@@ -64,6 +70,29 @@ export function ClassPage() {
         },
       },
     )
+  }
+
+  const remove = () => {
+    if (!toRemove || !schoolClass) return
+    const losesAccess =
+      schoolClass.my_role !== 'TREASURER' &&
+      !schoolClass.children.some(
+        (m) =>
+          m.id !== toRemove.id &&
+          m.status === 'ACTIVE' &&
+          m.parent.id === me?.id,
+      )
+
+    removeMembership.mutate(toRemove.id, {
+      onSuccess: () => {
+        if (losesAccess) {
+          navigate('/classes', { replace: true })
+          return
+        }
+        notify(`${toRemove.child.first_name} removed from the class`)
+        setToRemove(null)
+      },
+    })
   }
 
   if (isPending) {
@@ -152,6 +181,10 @@ export function ClassPage() {
           currentUserId={me?.id}
           emptyText="No children in this class yet."
           showRemove={isTreasurer}
+          onRemove={(member) => {
+            removeMembership.reset()
+            setToRemove(member)
+          }}
         />
       </PageSection>
 
@@ -159,10 +192,22 @@ export function ClassPage() {
         <EmptyState dashed description="Coming soon." />
       </PageSection>
 
+      {!isTreasurer && (
+        <LeaveClassSection
+          myChildren={members.filter((m) => m.parent.id === me?.id)}
+          className={schoolClass.name}
+          onLeave={(member) => {
+            removeMembership.reset()
+            setToRemove(member)
+          }}
+        />
+      )}
+
       <ConfirmDialog
         open={toReject !== null}
         title={`Reject ${toReject ? fullName(toReject.child) : ''}?`}
-        description={`${toReject?.child.first_name ?? 'The child'} will not join the class. The parent can ask again with the access code.`}
+        description={`${toReject?.child.first_name ?? 'The child'} will not join the class. 
+              The parent can ask again with the access code.`}
         confirmLabel="Reject"
         destructive
         loading={review.isPending}
@@ -173,6 +218,24 @@ export function ClassPage() {
         }
         onConfirm={reject}
         onClose={() => setToReject(null)}
+      />
+
+      <ConfirmDialog
+        open={toRemove !== null}
+        title={`Remove ${toRemove ? fullName(toRemove.child) : ''}?`}
+        description={`${toRemove?.child.first_name ?? 'The child'} leaves the class. 
+              Payments already made stay in the history, 
+              and ${isTreasurer ? 'the parent' : 'you'} can join again with the access code.`}
+        confirmLabel="Remove"
+        destructive
+        loading={removeMembership.isPending}
+        error={
+          removeMembership.isError
+            ? 'Could not remove the child. Please try again.'
+            : null
+        }
+        onConfirm={remove}
+        onClose={() => setToRemove(null)}
       />
 
       <AppSnackbar

@@ -197,6 +197,26 @@ export function useReviewMembership(classId: string) {
       ]),
   })
 }
+/**
+ * Takes a child out of the class (status LEFT). The treasurer can remove anyone,
+ * a parent only their own child. Payments and history stay.
+ * 409 = the request was rejected earlier, there is nothing to remove.
+ */
+export function useRemoveMembership(classId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<ChildClassMembership, ApiError, string>({
+    mutationFn: (membershipId) =>
+      api.post<ChildClassMembership>(
+        `/classes/${classId}/memberships/${membershipId}/remove`,
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: classesKeys.all })
+      // the removed child may be one of mine: its card shows the class
+      void queryClient.invalidateQueries({ queryKey: ['children'] })
+    },
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
