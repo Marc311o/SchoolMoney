@@ -14,6 +14,7 @@ import {
 import AppButton from '@/components/AppButton'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import TextInput from '@/components/TextInput'
+import SelectInput from '@/components/SelectInput'
 
 import { type SchoolClassCreate } from '@/features/classes/api'
 import { type ApiError, getFieldErrors } from '@/lib/api'
@@ -89,6 +90,17 @@ export default function CreateClassDialog({
     return apiErrors.school_year
   })()
 
+  const currentYear = new Date().getFullYear()
+
+  const schoolYears = Array.from({ length: 10 }, (_, index) => {
+    const start = currentYear - 5 + index
+
+    return {
+      value: `${start}/${start + 1}`,
+      label: `${start}/${start + 1}`,
+    }
+  })
+
   const handleClose = () => {
     if (loading) return
 
@@ -148,14 +160,16 @@ export default function CreateClassDialog({
             disabled={loading}
           />
 
-          <TextInput
+          <SelectInput
             label="School year (optional)"
-            placeholder="2026/2027"
             value={schoolYear}
             onChange={setSchoolYear}
+            options={schoolYears}
+            allowEmpty
+            emptyLabel="No school year"
+            disabled={loading}
             error={!!schoolYearError}
             errorText={schoolYearError}
-            disabled={loading}
           />
 
           <FormControlLabel
