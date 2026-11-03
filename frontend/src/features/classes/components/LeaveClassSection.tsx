@@ -1,4 +1,4 @@
-import { Button, Stack, Typography } from '@mui/material'
+import { Button, Stack, Tooltip, Typography } from '@mui/material'
 
 import type { ClassMemberWithParent } from '@/features/classes/api'
 
@@ -36,14 +36,16 @@ export function LeaveClassSection({
 
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1, ml: -1 }}>
         {myChildren.map((member) => (
-          <Button
-            key={member.id}
-            size="small"
-            onClick={() => onLeave(member)}
-            sx={{ color: 'error.dark', fontWeight: 500, px: 1 }}
-          >
-            Remove {member.child.first_name} from the class
-          </Button>
+         <Tooltip title={member.child.first_name + ' ' + member.child.last_name} >
+            <Button
+              key={member.id}
+              size="small"
+              onClick={() => onLeave(member)}
+              sx={{ color: 'error.dark', fontWeight: 500, px: 1 }}
+            >
+              Remove {member.child.first_name} from the class
+            </Button>
+          </Tooltip>
         ))}
       </Stack>
     </Stack>
