@@ -14,6 +14,7 @@ import AppButton from '@/components/AppButton'
 import WhiteCard from '@/components/WhiteCard'
 import UserStatusChip from '@/components/UserStatusChip'
 import PageHeader from '@/components/PageHeader'
+import { BankAccountsCard } from '@/features/wallet/components/BankAccountsCard'
 
 import { type ApiError, getFieldErrors } from '@/lib/api'
 
@@ -475,6 +476,7 @@ function SettingsContent({ user }: { user: User }) {
               </Stack>
             </Stack>
           </WhiteCard>
+          <BankAccountsCard />
         </Stack>
       </Grid>
     </Grid>
