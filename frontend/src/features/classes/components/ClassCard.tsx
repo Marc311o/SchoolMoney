@@ -44,7 +44,6 @@ export function ClassCard({ schoolClass }: ClassCardProps) {
                   `${schoolClass.school_year_start}/${schoolClass.school_year_start + 1}`}
               </Typography>
             )}
-              
           </Box>
           {isTreasurer && <StatusBadge>Treasurer</StatusBadge>}
           {!canOpen && <StatusBadge>Waiting</StatusBadge>}
