@@ -7,8 +7,6 @@ import {
   DialogTitle,
   Stack,
   Typography,
-  FormControlLabel,
-  Checkbox,
 } from '@mui/material'
 
 import AppButton from '@/components/AppButton'
@@ -31,7 +29,6 @@ type ClassErrors = {
   name?: string
   school_name?: string
   school_year?: string
-  append_school_year?: string
   general?: string
 }
 
@@ -55,23 +52,14 @@ export default function CreateClassDialog({
   const [name, setName] = useState('')
   const [schoolName, setSchoolName] = useState('')
   const [schoolYear, setSchoolYear] = useState('')
-  const [appendSchoolYear, setAppendSchoolYear] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
   const apiErrors = error ? serverErrors(error) : {}
 
   const nameError =
-    submitted && !name.trim()
-      ? 'Class name is required.'
-      : appendSchoolYear && name.trim().length > 90
-        ? 'Class name must be at most 90 characters.'
-        : apiErrors.name
+    submitted && !name.trim() ? 'Class name is required.' : apiErrors.name
 
   const schoolYearError = (() => {
-    if (submitted && appendSchoolYear && !schoolYear) {
-      return 'School year is required when appending it to the class name.'
-    }
-
     if (schoolYear) {
       const match = /^(\d{4})\/(\d{4})$/.exec(schoolYear)
 
@@ -107,7 +95,6 @@ export default function CreateClassDialog({
     setName('')
     setSchoolName('')
     setSchoolYear('')
-    setAppendSchoolYear(false)
     setSubmitted(false)
 
     onClose()
@@ -118,8 +105,6 @@ export default function CreateClassDialog({
 
     if (
       !name.trim() ||
-      (appendSchoolYear && !schoolYear) ||
-      (appendSchoolYear && name.trim().length > 90) ||
       (schoolYear && !/^([1-9]\d{0,3})\/(\d{4})$/.test(schoolYear)) ||
       (schoolYear &&
         Number(schoolYear.split('/')[1]) !==
@@ -132,7 +117,6 @@ export default function CreateClassDialog({
       name: name.trim(),
       school_name: schoolName.trim() || null,
       school_year: schoolYear || null,
-      append_school_year: appendSchoolYear,
     })
   }
 
@@ -171,24 +155,6 @@ export default function CreateClassDialog({
             error={!!schoolYearError}
             errorText={schoolYearError}
           />
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={appendSchoolYear}
-                onChange={(event) => setAppendSchoolYear(event.target.checked)}
-                disabled={loading}
-              />
-            }
-            label="Append school year to class name"
-          />
-
-          {appendSchoolYear && (
-            <Typography variant="caption" color="text.secondary">
-              The class name will look like: {name.trim() || 'Class name'}_
-              {schoolYear || '2026/2027'}
-            </Typography>
-          )}
 
           {apiErrors.general && (
             <Typography color="error" variant="body2">

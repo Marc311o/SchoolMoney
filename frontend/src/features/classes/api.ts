@@ -52,7 +52,6 @@ export type SchoolClassCreate = {
   name: string
   school_name?: string | null
   school_year?: string | null
-  append_school_year: boolean
 }
 
 /** GET /classes */
