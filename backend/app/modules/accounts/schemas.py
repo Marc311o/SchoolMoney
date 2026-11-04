@@ -1,13 +1,20 @@
 import re
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import StringConstraints, field_validator, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from app.common.schemas import NonNegativeMoney, PositiveMoney, SchemaBase
 from app.modules.accounts.enums import AccountType, TransactionType
 
+MAX_TOP_UP = Decimal("10000.00")
+
+TopUpAmount = Annotated[
+    Decimal,
+    Field(gt=0, le=MAX_TOP_UP, max_digits=12, decimal_places=2),
+]
 Iban = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=15, max_length=34),
@@ -53,7 +60,7 @@ class AccountBalanceRead(SchemaBase):
 
 
 class TopUpCreate(SchemaBase):
-    amount: PositiveMoney
+    amount: TopUpAmount
     description: Description | None = None
 
 
