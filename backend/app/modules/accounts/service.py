@@ -1,8 +1,9 @@
+import math
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.modules.accounts.enums import AccountType, TransactionType
@@ -15,6 +16,7 @@ from app.modules.accounts.models import (
 from app.modules.accounts.schemas import (
     ExternalBankAccountCreate,
     ExternalTransferCreate,
+    PaginatedTransactionsRead,
     TopUpCreate,
 )
 from app.modules.users.models import User
@@ -194,3 +196,61 @@ def transfer_out(db: Session, user: User, data: ExternalTransferCreate) -> Accou
     db.commit()
     db.refresh(wallet)
     return wallet
+
+
+def list_transactions(
+    db: Session,
+    user: User,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+) -> PaginatedTransactionsRead:
+    wallet = get_wallet(db, user)
+
+    filter_condition = or_(
+        Transaction.from_account_id == wallet.id,
+        Transaction.to_account_id == wallet.id,
+    )
+
+    total = db.scalar(select(func.count(Transaction.id)).where(filter_condition)) or 0
+
+    offset = (page - 1) * page_size
+    items = list(
+        db.scalars(
+            select(Transaction)
+            .where(filter_condition)
+            .order_by(desc(Transaction.created_at), desc(Transaction.id))
+            .offset(offset)
+            .limit(page_size)
+        )
+    )
+
+    pages = math.ceil(total / page_size) if total > 0 else 0
+
+    return PaginatedTransactionsRead(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+def get_transaction(db: Session, user: User, transaction_id: UUID) -> Transaction:
+    wallet = get_wallet(db, user)
+
+    transaction = db.scalar(
+        select(Transaction).where(
+            Transaction.id == transaction_id,
+            or_(
+                Transaction.from_account_id == wallet.id,
+                Transaction.to_account_id == wallet.id,
+            ),
+        )
+    )
+    if transaction is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
+        )
+    return transaction
