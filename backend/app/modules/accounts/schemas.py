@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import Field, StringConstraints, field_validator, model_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from app.common.schemas import NonNegativeMoney, PositiveMoney, SchemaBase
 from app.modules.accounts.enums import AccountType, TransactionType
@@ -128,3 +128,11 @@ class ExternalTransferRead(SchemaBase):
 class ExternalTransferDetailRead(ExternalTransferRead):
     transaction: TransactionRead
     external_account: ExternalBankAccountRead
+
+
+class PaginatedTransactionsRead(BaseModel):
+    items: list[TransactionRead]
+    total: int
+    page: int
+    page_size: int
+    pages: int

@@ -1,17 +1,20 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.modules.accounts import service
-from app.modules.accounts.models import Account, ExternalBankAccount
+from app.modules.accounts.models import Account, ExternalBankAccount, Transaction
 from app.modules.accounts.schemas import (
     AccountRead,
     ExternalBankAccountCreate,
     ExternalBankAccountRead,
     ExternalTransferCreate,
+    PaginatedTransactionsRead,
     TopUpCreate,
+    TransactionRead,
 )
 from app.modules.auth.dependencies import get_current_user
 from app.modules.users.models import User
@@ -72,3 +75,31 @@ def add_external_account(
 )
 def transfer_out(data: ExternalTransferCreate, user: CurrentUser, db: DbSession) -> Account:
     return service.transfer_out(db, user, data)
+
+
+@router.get(
+    "/transactions",
+    response_model=PaginatedTransactionsRead,
+    summary="Get paginated transaction history for my wallet",
+)
+def list_transactions(
+    user: CurrentUser,
+    db: DbSession,
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
+) -> PaginatedTransactionsRead:
+    return service.list_transactions(db, user, page=page, page_size=page_size)
+
+
+@router.get(
+    "/transactions/{transaction_id}",
+    response_model=TransactionRead,
+    summary="Get a transaction by ID",
+    responses={404: {"description": "Transaction not found"}},
+)
+def get_transaction(
+    transaction_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+) -> Transaction:
+    return service.get_transaction(db, user, transaction_id)
