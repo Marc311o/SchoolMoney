@@ -2,10 +2,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modules.users.enums import UserRole
+from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from app.modules.users.repository import get_user_by_email, get_user_by_id
 from app.modules.users.schemas import AdminUserEmailUpdate, UserUpdate
@@ -82,3 +83,27 @@ def change_parent_email(
 
     db.refresh(user)
     return user
+
+
+def search_parents_by_email(
+    db: Session,
+    email_query: str,
+    limit: int = 10,
+) -> list[User]:
+    """Search active parents matching the email query."""
+    clean_query = email_query.strip().lower()
+    if not clean_query:
+        return []
+
+    return list(
+        db.scalars(
+            select(User)
+            .where(
+                User.role == UserRole.PARENT,
+                User.status == UserStatus.ACTIVE,
+                User.email.ilike(f"%{clean_query}%"),
+            )
+            .order_by(User.email)
+            .limit(limit)
+        ).all()
+    )

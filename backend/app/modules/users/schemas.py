@@ -60,3 +60,11 @@ class UserRead(SchemaBase):
     status: UserStatus
     created_at: datetime
     updated_at: datetime | None
+
+
+class ParentSearchResult(SchemaBase):
+    id: UUID
+    email: EmailStr
+    first_name: str
+    last_name: str
+    avatar_url: str | None

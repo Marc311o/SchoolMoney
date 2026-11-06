@@ -180,3 +180,11 @@ class ClassDetailRead(SchoolClassRead):
     my_role: ClassRole
     treasurer: UserSummaryRead
     children: list[ClassMemberWithParentRead]
+
+
+class ClassInviteDetailsRead(SchemaBase):
+    class_id: UUID
+    class_name: str
+    school_name: str | None
+    treasurer_name: str
+    code: str

@@ -16,6 +16,7 @@ from app.modules.classrooms.schemas import (
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassInviteDetailsRead,
     ClassJoinRequest,
     ClassListItemRead,
     ClassMemberRead,
@@ -416,3 +417,40 @@ def remove_membership(
     db.refresh(membership)
 
     return ChildClassMembershipRead.model_validate(membership)
+
+
+def get_invite_details(db: Session, code: str) -> ClassInviteDetailsRead:
+    """Resolve an invite code/token and return basic class information."""
+    access_code = db.scalar(
+        select(ClassAccessCode).where(
+            ClassAccessCode.code == code,
+            ClassAccessCode.active.is_(True),
+            (ClassAccessCode.valid_until.is_(None))
+            | (ClassAccessCode.valid_until > datetime.now(UTC)),
+        )
+    )
+    if access_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invite link",
+        )
+
+    school_class = db.get(SchoolClass, access_code.class_id)
+    if school_class is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found",
+        )
+
+    treasurer = db.get(User, school_class.treasurer_id)
+    treasurer_name = (
+        f"{treasurer.first_name} {treasurer.last_name}" if treasurer else "Unknown Treasurer"
+    )
+
+    return ClassInviteDetailsRead(
+        class_id=school_class.id,
+        class_name=school_class.name,
+        school_name=school_class.school_name,
+        treasurer_name=treasurer_name,
+        code=access_code.code,
+    )

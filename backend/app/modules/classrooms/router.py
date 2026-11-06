@@ -12,6 +12,7 @@ from app.modules.classrooms.schemas import (
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassInviteDetailsRead,
     ClassJoinRequest,
     ClassListItemRead,
     MembershipReviewRequest,
@@ -152,3 +153,17 @@ def remove_membership(
     db: DbSession,
 ) -> ChildClassMembershipRead:
     return service.remove_membership(db, user, class_id, membership_id)
+
+
+@router.get(
+    "/invites/{code}",
+    response_model=ClassInviteDetailsRead,
+    summary="Get class details by invite token / code",
+    responses={404: {"description": "Invalid or expired invite code"}},
+)
+def get_invite_details(
+    code: str,
+    _user: CurrentUser,
+    db: DbSession,
+) -> ClassInviteDetailsRead:
+    return service.get_invite_details(db, code)
