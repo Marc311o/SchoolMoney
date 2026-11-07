@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   Alert,
   Avatar,
@@ -34,7 +34,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
   const [emailSent, setEmailSent] = useState(false)
   const [listOpen, setListOpen] = useState(false)
 
-  const inputRef = useRef<HTMLDivElement>(null)
+  const [inputElement, setInputElement] = useState<HTMLDivElement | null>(null)
 
   const query = email.trim()
 
@@ -88,7 +88,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
               class.
             </Typography>
 
-            <Box ref={inputRef} sx={{ width: '100%', mt: 2 }}>
+            <Box ref={setInputElement} sx={{ width: '100%', mt: 2 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -115,7 +115,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
 
             <Popper
               open={showResults}
-              anchorEl={inputRef.current}
+              anchorEl={inputElement}
               placement="bottom-start"
               keepMounted
               modifiers={[
@@ -126,7 +126,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
               ]}
               sx={{
                 zIndex: (theme) => theme.zIndex.modal + 1,
-                width: inputRef.current?.clientWidth,
+                width: inputElement?.clientWidth,
               }}
             >
               <ClickAwayListener onClickAway={() => setListOpen(false)}>
@@ -156,7 +156,8 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
                         color: 'inherit',
                         bgcolor: 'background.paper',
                         border: 0,
-                        borderBottom: index < parents.length - 1 ? 1 : 0,
+                        borderBottom:
+                          index < parents.length - 1 ? 1 : 0,
                         borderColor: 'divider',
                         cursor: 'pointer',
                         '&:hover': {
