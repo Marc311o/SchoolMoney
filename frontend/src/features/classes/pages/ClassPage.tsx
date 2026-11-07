@@ -27,6 +27,7 @@ import { AccessCodeCard } from '@/features/classes/components/AccessCodeCard'
 import { LeaveClassSection } from '@/features/classes/components/LeaveClassSection'
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
+import { ParentSearchSection } from '@/features/classes/components/ParentSearchSection'
 import { fullName } from '@/lib/names'
 import { useState } from 'react'
 
@@ -150,10 +151,14 @@ export function ClassPage() {
             gap: 2.5,
             gridTemplateColumns:
               'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
+            alignItems: 'stretch',
+            '& > *': {
+              minHeight: 280,
+            },
           }}
         >
           <AccessCodeCard classId={classId} onNotify={notify} />
-          <EmptyState dashed description="Inviting parents: coming soon." />
+          <ParentSearchSection classId={classId} />
         </Box>
       )}
 
