@@ -46,6 +46,7 @@ export const router = createBrowserRouter([
           { path: '/classes/:classId', element: <ClassPage /> },
           { path: '/account', element: <WalletPage /> },
           { path: '/chat', element: <ChatPage /> },
+          { path: '/chat/:chatId', element: <ChatPage /> },
           { path: '/reports', element: <ReportsPage /> },
           { path: '/settings', element: <SettingsPage /> },
         ],
