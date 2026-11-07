@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import Select, and_, distinct, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.orm import Session
 
@@ -163,19 +163,38 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
     ):
         others[chat_id] = other
 
-    class_names = dict(
-        db.execute(
-            select(SchoolClass.id, SchoolClass.name).where(
-                SchoolClass.id.in_([chat.class_id for chat in chats if chat.class_id])
+    classes = {
+        class_id: (name, children, parents)
+        for class_id, name, children, parents in db.execute(
+            select(
+                SchoolClass.id,
+                SchoolClass.name,
+                func.count(distinct(Child.id)),
+                func.count(distinct(Child.parent_id)),
             )
-        ).all()
-    )
+            .outerjoin(
+                ChildClassMembership,
+                and_(
+                    ChildClassMembership.class_id == SchoolClass.id,
+                    ChildClassMembership.status == MembershipStatus.ACTIVE,
+                ),
+            )
+            .outerjoin(
+                Child,
+                and_(Child.id == ChildClassMembership.child_id, Child.deleted_at.is_(None)),
+            )
+            .where(SchoolClass.id.in_([chat.class_id for chat in chats if chat.class_id]))
+            .group_by(SchoolClass.id)
+        )
+    }
 
     summaries = []
     for chat in chats:
         other = others.get(chat.id)
+        children_count = parents_count = None
         if chat.kind == ChatKind.CLASS:
-            title, other_user = f"Class {class_names[chat.class_id]}", None
+            name, children_count, parents_count = classes[chat.class_id]
+            title, other_user = f"Class {name}", None
         elif chat.kind == ChatKind.ADMIN and user.role != UserRole.ADMIN:
             title, other_user = ADMIN_CHAT_TITLE, None
         else:
@@ -191,6 +210,8 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
                 class_id=chat.class_id,
                 other_user=other_user,
                 last_message=last_message,
+                children_count=children_count,
+                parents_count=parents_count,
                 unread_count=unread.get(chat.id, 0),
                 last_activity_at=last_message.created_at if last_message else chat.created_at,
             )

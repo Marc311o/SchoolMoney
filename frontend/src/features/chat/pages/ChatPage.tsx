@@ -71,7 +71,6 @@ export function ChatPage() {
         sx={{
           display: 'flex',
           gap: 2.5,
-          // the page itself does not scroll: the list and the messages do
           height: showList ? 'calc(100dvh - 130px)' : 'calc(100dvh - 2em)',
           minHeight: 480,
         }}
@@ -101,7 +100,6 @@ export function ChatPage() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {chatId ? (
               <Conversation
-                // a fresh message list (and scroll position) for every chat
                 key={chatId}
                 chatId={chatId}
                 myId={me.id}

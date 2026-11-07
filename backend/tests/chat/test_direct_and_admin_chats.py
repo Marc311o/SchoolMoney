@@ -45,6 +45,7 @@ def test_any_two_parents_can_talk(client: TestClient, anna, marek):
     assert seen_by_marek["id"] == chat["id"]
     assert seen_by_marek["title"] == "Anna Nowak"
     assert seen_by_marek["unread_count"] == 1
+    assert chat["children_count"] is None
 
 
 def test_opening_again_returns_the_same_chat(client: TestClient, anna, marek):

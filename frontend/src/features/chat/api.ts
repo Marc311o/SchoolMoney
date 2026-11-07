@@ -38,6 +38,8 @@ export type ChatSummary = {
   last_message: ChatMessage | null
   unread_count: number
   last_activity_at: string
+  children_count: number | null
+  parents_count: number | null
 }
 
 /** Tabs above the list. ADMIN is shown to treasurers only. */

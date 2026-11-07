@@ -56,6 +56,8 @@ def test_treasurer_and_active_parent_share_the_class_chat(
     assert mine["other_user"] is None
     assert mine["last_message"] is None
     assert mine["unread_count"] == 0
+    assert mine["children_count"] == 1
+    assert mine["parents_count"] == 1
 
 
 def test_class_chat_is_created_once(
@@ -128,3 +130,16 @@ def test_each_class_has_its_own_chat(
     assert titles == ["Class 1A", "Class 3B"]
     kinds = db.scalars(select(Chat.kind).where(Chat.class_id.is_not(None))).all()
     assert set(kinds) == {ChatKind.CLASS}
+
+
+def test_class_chat_counts_active_children_and_their_parents(
+    client: TestClient, db: Session, auth_headers: AuthHeaders, treasurer, school_class
+):
+    marek = parent_in_class(db, auth_headers, school_class, "marek@example.com")
+    make_membership(db, make_child(db, marek.id, first_name="Jan").id, school_class.id)
+    parent_in_class(db, auth_headers, school_class, "ewa@example.com")
+    parent_in_class(db, auth_headers, school_class, "pending@example.com", MembershipStatus.PENDING)
+
+    [chat] = list_chats(client, treasurer)
+    assert chat["children_count"] == 3  # Marek's two and Ewa's one
+    assert chat["parents_count"] == 2

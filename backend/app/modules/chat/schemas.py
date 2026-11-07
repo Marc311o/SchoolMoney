@@ -45,6 +45,8 @@ class ChatRead(SchemaBase):
     title: str
     class_id: UUID | None
     other_user: UserSummaryRead | None
+    children_count: int | None = None
+    parents_count: int | None = None
     last_message: MessageRead | None
     unread_count: int
     last_activity_at: datetime
