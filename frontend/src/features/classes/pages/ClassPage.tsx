@@ -104,6 +104,12 @@ export function ClassPage() {
     return <ClassLoadError notFound={isClassNotFound(error)} />
   }
 
+  const existingParentIds = schoolClass.children
+    .filter(
+      (member) => member.status === 'ACTIVE' || member.status === 'PENDING',
+    )
+    .map((member) => member.parent.id)
+
   const isTreasurer = schoolClass.my_role === 'TREASURER'
   const members = schoolClass.children.filter((m) => m.status === 'ACTIVE')
   const waiting = schoolClass.children.filter((m) => m.status === 'PENDING')
@@ -158,7 +164,10 @@ export function ClassPage() {
           }}
         >
           <AccessCodeCard classId={classId} onNotify={notify} />
-          <ParentSearchSection classId={classId} />
+          <ParentSearchSection
+            classId={classId}
+            existingParentIds={existingParentIds}
+          />
         </Box>
       )}
 

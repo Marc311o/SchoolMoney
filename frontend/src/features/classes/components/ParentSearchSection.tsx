@@ -25,9 +25,13 @@ import { useSendClassInvite } from '@/features/classes/api'
 
 interface ParentSearchSectionProps {
   classId: string
+  existingParentIds: string[]
 }
 
-export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
+export function ParentSearchSection({
+  classId,
+  existingParentIds,
+}: ParentSearchSectionProps) {
   const [email, setEmail] = useState('')
   const [selectedParent, setSelectedParent] =
     useState<ParentSearchResult | null>(null)
@@ -43,6 +47,10 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
     isFetching: isSearching,
     isError: isSearchError,
   } = useSearchParents(query)
+
+  const availableParents = parents?.filter(
+    (parent) => !existingParentIds.includes(parent.id),
+  )
 
   const sendInviteMutation = useSendClassInvite(classId)
 
@@ -74,7 +82,10 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
   }
 
   const showResults =
-    !selectedParent && listOpen && query.length >= 2 && Boolean(parents?.length)
+    !selectedParent &&
+    listOpen &&
+    query.length >= 2 &&
+    Boolean(availableParents?.length)
 
   return (
     <WhiteCard>
@@ -140,7 +151,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
                     borderRadius: 1,
                   }}
                 >
-                  {parents?.map((parent, index) => (
+                  {availableParents?.map((parent, index) => (
                     <Box
                       key={parent.id}
                       component="button"
@@ -156,7 +167,8 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
                         color: 'inherit',
                         bgcolor: 'background.paper',
                         border: 0,
-                        borderBottom: index < parents.length - 1 ? 1 : 0,
+                        borderBottom:
+                          index < (availableParents?.length ?? 0) - 1 ? 1 : 0,
                         borderColor: 'divider',
                         cursor: 'pointer',
                         '&:hover': {
@@ -217,7 +229,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
             {query.length >= 2 &&
               !isSearching &&
               !isSearchError &&
-              parents?.length === 0 && (
+              availableParents?.length === 0 && (
                 <Alert severity="info">No parents found.</Alert>
               )}
           </>
