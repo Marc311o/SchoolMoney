@@ -156,8 +156,7 @@ export function ParentSearchSection({ classId }: ParentSearchSectionProps) {
                         color: 'inherit',
                         bgcolor: 'background.paper',
                         border: 0,
-                        borderBottom:
-                          index < parents.length - 1 ? 1 : 0,
+                        borderBottom: index < parents.length - 1 ? 1 : 0,
                         borderColor: 'divider',
                         cursor: 'pointer',
                         '&:hover': {
