@@ -1,76 +1,76 @@
 import { ToggleButton, ToggleButtonGroup } from '@mui/material'
 
-export interface SelectChipOption {
+export interface SelectChipOption<T extends string> {
   label: string
-  value: string
+  value: T
 }
 
-interface SelectChipsProps {
-  options: SelectChipOption[]
-  value: string | null
-  onChange: (value: string | null) => void
-  color?: 'standard' | 'primary' | 'secondary'
-  size?: 'small' | 'medium' | 'large'
+interface SelectChipsProps<T extends string> {
+  options: SelectChipOption<T>[]
+  value: T
+  onChange: (value: T) => void
+  label: string
+  fullWidth?: boolean
 }
 
-export default function SelectChips({
+export default function SelectChips<T extends string>({
   options,
   value,
   onChange,
-  color = 'primary',
-  size = 'small',
-}: SelectChipsProps) {
+  label,
+  fullWidth = true,
+}: SelectChipsProps<T>) {
   return (
     <ToggleButtonGroup
       exclusive
       value={value}
-      color={color}
-      size={size}
-      onChange={(_, newValue: string | null) => onChange(newValue)}
-      aria-label="Select one option"
+      onChange={(_, newValue: T | null) => {
+        if (newValue !== null) onChange(newValue)
+      }}
+      aria-label={label}
       sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 1,
-        width: '100%',
+        display: fullWidth ? 'flex' : 'inline-flex',
+        gap: 0.5,
+        p: 0.5,
+        bgcolor: 'background.default',
+        borderRadius: '10px',
 
         '& .MuiToggleButtonGroup-grouped': {
-          flex: 1,
+          flex: fullWidth ? 1 : 'none',
           minWidth: 0,
-          px: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          textTransform: 'none',
-
-          // Unselected
-          bgcolor: 'divider',
-          color: '#000000',
+          minHeight: 34,
+          m: 0,
+          px: 1.5,
+          py: 0.5,
+          border: 0,
+          borderRadius: '8px',
+          color: 'text.secondary',
+          fontSize: 13,
           fontWeight: 600,
+          lineHeight: 1.4,
+          textTransform: 'none',
+          whiteSpace: 'nowrap',
 
           '&:hover': {
             bgcolor: 'action.hover',
           },
 
-          // Selected
-          '&.Mui-selected': {
-            bgcolor: 'text.secondary',
-            color: '#FFFFFF',
-            fontWeight: 600,
+          '&.Mui-selected, &.Mui-selected:hover': {
+            bgcolor: 'background.paper',
+            color: 'text.primary',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
+          },
 
-            '&:hover': {
-              bgcolor: 'text.secondary',
-            },
+          '&.Mui-focusVisible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: -2,
           },
         },
       }}
     >
       {options.map((option) => (
-        <ToggleButton
-          key={option.value}
-          value={option.value}
-          aria-label={option.label}
-        >
+        <ToggleButton key={option.value} value={option.value}>
           {option.label}
         </ToggleButton>
       ))}
