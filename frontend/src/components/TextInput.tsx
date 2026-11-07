@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { IconButton, InputAdornment, TextField } from '@mui/material'
 
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
@@ -17,6 +17,10 @@ interface TextInputProps {
   error?: boolean
   errorText?: string
   label?: string
+  ariaLabel?: string
+  multiline?: boolean
+  maxRows?: number
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void
 }
 
 export default function TextInput({
@@ -31,6 +35,10 @@ export default function TextInput({
   error = false,
   errorText,
   label = '',
+  ariaLabel,
+  multiline = false,
+  maxRows,
+  onKeyDown,
 }: TextInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 
@@ -51,7 +59,11 @@ export default function TextInput({
       size="small"
       error={hasError}
       helperText={errorText || undefined}
+      multiline={multiline}
+      maxRows={maxRows}
+      onKeyDown={onKeyDown}
       slotProps={{
+        htmlInput: ariaLabel ? { 'aria-label': ariaLabel } : undefined,
         formHelperText: {
           sx: {
             mx: 0,
@@ -118,6 +130,13 @@ export default function TextInput({
         '& .MuiInputBase-input': {
           fontSize: 14,
           py: 1.25,
+        },
+        '& .MuiInputBase-multiline': {
+          py: 1.25,
+
+          '& .MuiInputBase-input': {
+            py: 0,
+          },
         },
 
         '& .MuiFormHelperText-root.Mui-error': {
