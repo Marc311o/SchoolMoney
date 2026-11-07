@@ -18,14 +18,16 @@ from app.modules.classrooms.schemas import (
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassInviteCreate,
     ClassInviteDetailsRead,
+    ClassInviteSentRead,
     ClassJoinRequest,
     ClassListItemRead,
     ClassMemberRead,
     ClassMemberWithParentRead,
     MembershipReviewRequest,
     SchoolClassCreate,
-    SchoolClassRead, ClassInviteSentRead, ClassInviteCreate,
+    SchoolClassRead,
 )
 from app.modules.users.enums import UserStatus
 from app.modules.users.models import User
@@ -458,6 +460,7 @@ def get_invite_details(db: Session, code: str) -> ClassInviteDetailsRead:
         code=access_code.code,
     )
 
+
 def send_class_invite(
     db: Session,
     user: User,
@@ -497,8 +500,7 @@ def send_class_invite(
         .where(
             ClassAccessCode.class_id == class_id,
             ClassAccessCode.active.is_(True),
-            (ClassAccessCode.valid_until.is_(None))
-            | (ClassAccessCode.valid_until > now),
+            (ClassAccessCode.valid_until.is_(None)) | (ClassAccessCode.valid_until > now),
         )
         .order_by(
             ClassAccessCode.created_at.desc(),

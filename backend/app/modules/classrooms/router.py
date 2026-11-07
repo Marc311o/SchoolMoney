@@ -12,12 +12,14 @@ from app.modules.classrooms.schemas import (
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassInviteCreate,
     ClassInviteDetailsRead,
+    ClassInviteSentRead,
     ClassJoinRequest,
     ClassListItemRead,
     MembershipReviewRequest,
     SchoolClassCreate,
-    SchoolClassRead, ClassInviteSentRead, ClassInviteCreate,
+    SchoolClassRead,
 )
 from app.modules.users.models import User
 
@@ -53,9 +55,9 @@ def get_class(class_id: UUID, user: CurrentUser, db: DbSession) -> ClassDetailRe
     summary="Create a class (creator becomes treasurer)",
 )
 def create_class(
-        payload: SchoolClassCreate,
-        user: CurrentUser,
-        db: DbSession,
+    payload: SchoolClassCreate,
+    user: CurrentUser,
+    db: DbSession,
 ) -> SchoolClassRead:
     return service.create_class(db, user, payload)
 
@@ -67,10 +69,10 @@ def create_class(
     responses={404: {"description": "Class not found or I am not its treasurer"}},
 )
 def get_access_code(
-        class_id: UUID,
-        user: CurrentUser,
-        db: DbSession,
-        response: Response,
+    class_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+    response: Response,
 ) -> ClassAccessCodeRead | None:
     response.headers["Cache-Control"] = "no-store"
     return service.get_access_code(db, user, class_id)
@@ -84,11 +86,11 @@ def get_access_code(
     responses={404: {"description": "Class not found or I am not its treasurer"}},
 )
 def regenerate_access_code(
-        class_id: UUID,
-        data: ClassAccessCodeCreate,
-        user: CurrentUser,
-        db: DbSession,
-        response: Response,
+    class_id: UUID,
+    data: ClassAccessCodeCreate,
+    user: CurrentUser,
+    db: DbSession,
+    response: Response,
 ) -> ClassAccessCodeRead:
     response.headers["Cache-Control"] = "no-store"
     return service.regenerate_access_code(db, user, class_id, data)
@@ -105,9 +107,9 @@ def regenerate_access_code(
     },
 )
 def join_class(
-        payload: ClassJoinRequest,
-        user: CurrentUser,
-        db: DbSession,
+    payload: ClassJoinRequest,
+    user: CurrentUser,
+    db: DbSession,
 ) -> ChildClassMembershipRead:
     return service.join_class(db, user, payload)
 
@@ -122,11 +124,11 @@ def join_class(
     },
 )
 def review_membership(
-        class_id: UUID,
-        membership_id: UUID,
-        payload: MembershipReviewRequest,
-        user: CurrentUser,
-        db: DbSession,
+    class_id: UUID,
+    membership_id: UUID,
+    payload: MembershipReviewRequest,
+    user: CurrentUser,
+    db: DbSession,
 ) -> ChildClassMembershipRead:
     return service.review_membership(
         db=db,
@@ -147,10 +149,10 @@ def review_membership(
     },
 )
 def remove_membership(
-        class_id: UUID,
-        membership_id: UUID,
-        user: CurrentUser,
-        db: DbSession,
+    class_id: UUID,
+    membership_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
 ) -> ChildClassMembershipRead:
     return service.remove_membership(db, user, class_id, membership_id)
 
@@ -162,9 +164,9 @@ def remove_membership(
     responses={404: {"description": "Invalid or expired invite code"}},
 )
 def get_invite_details(
-        code: str,
-        _user: CurrentUser,
-        db: DbSession,
+    code: str,
+    _user: CurrentUser,
+    db: DbSession,
 ) -> ClassInviteDetailsRead:
     return service.get_invite_details(db, code)
 
@@ -181,10 +183,10 @@ def get_invite_details(
     },
 )
 def send_class_invite(
-        class_id: UUID,
-        payload: ClassInviteCreate,
-        user: CurrentUser,
-        db: DbSession,
+    class_id: UUID,
+    payload: ClassInviteCreate,
+    user: CurrentUser,
+    db: DbSession,
 ) -> ClassInviteSentRead:
     return service.send_class_invite(
         db=db,
