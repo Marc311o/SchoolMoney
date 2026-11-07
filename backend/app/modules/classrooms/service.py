@@ -8,15 +8,19 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
+from app.modules.auth.mailer import EmailDeliveryError
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import ClassRole, MembershipStatus
+from app.modules.classrooms.mailer import send_class_invite_email
 from app.modules.classrooms.models import ChildClassMembership, ClassAccessCode, SchoolClass
 from app.modules.classrooms.schemas import (
     ChildClassMembershipRead,
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassInviteCreate,
     ClassInviteDetailsRead,
+    ClassInviteSentRead,
     ClassJoinRequest,
     ClassListItemRead,
     ClassMemberRead,
@@ -25,6 +29,7 @@ from app.modules.classrooms.schemas import (
     SchoolClassCreate,
     SchoolClassRead,
 )
+from app.modules.users.enums import UserStatus
 from app.modules.users.models import User
 from app.modules.users.schemas import UserSummaryRead
 
@@ -453,4 +458,84 @@ def get_invite_details(db: Session, code: str) -> ClassInviteDetailsRead:
         school_name=school_class.school_name,
         treasurer_name=treasurer_name,
         code=access_code.code,
+    )
+
+
+def send_class_invite(
+    db: Session,
+    user: User,
+    class_id: UUID,
+    payload: ClassInviteCreate,
+) -> ClassInviteSentRead:
+    """Send an invitation email to a parent. Treasurer only."""
+
+    school_class = _require_treasurer(db, user, class_id)
+
+    # Find the selected parent.
+    parent = db.scalar(
+        select(User).where(
+            User.id == payload.parent_id,
+            User.status == UserStatus.ACTIVE,
+        )
+    )
+
+    if parent is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parent not found",
+        )
+
+    # Do not invite the treasurer
+    if parent.id == user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You cannot invite yourself",
+        )
+
+    # Find the currently active access code.
+    now = datetime.now(UTC)
+
+    access_code = db.scalar(
+        select(ClassAccessCode)
+        .where(
+            ClassAccessCode.class_id == class_id,
+            ClassAccessCode.active.is_(True),
+            (ClassAccessCode.valid_until.is_(None)) | (ClassAccessCode.valid_until > now),
+        )
+        .order_by(
+            ClassAccessCode.created_at.desc(),
+            ClassAccessCode.id.desc(),
+        )
+        .limit(1)
+    )
+
+    if access_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Class has no active access code",
+        )
+
+    treasurer_name = f"{user.first_name} {user.last_name}"
+
+    # Send email
+    try:
+        send_class_invite_email(
+            recipient=parent.email,
+            class_name=school_class.name,
+            school_name=school_class.school_name,
+            treasurer_name=treasurer_name,
+            access_code=access_code.code,
+        )
+    except EmailDeliveryError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not deliver invitation email",
+        ) from None
+
+    return ClassInviteSentRead(
+        message="Invitation email sent successfully",
+        class_id=class_id,
+        parent_id=parent.id,
+        email=parent.email,
+        sent_at=now,
     )

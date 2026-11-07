@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import StrictBool, StringConstraints, field_validator, model_validator
 
-from app.common.schemas import SchemaBase
+from app.common.schemas import Email, SchemaBase
 from app.modules.children.schemas import ChildSummaryRead
 from app.modules.classrooms.enums import ClassRole, MembershipStatus
 from app.modules.users.schemas import UserSummaryRead
@@ -188,3 +188,15 @@ class ClassInviteDetailsRead(SchemaBase):
     school_name: str | None
     treasurer_name: str
     code: str
+
+
+class ClassInviteCreate(SchemaBase):
+    parent_id: UUID
+
+
+class ClassInviteSentRead(SchemaBase):
+    message: str
+    class_id: UUID
+    parent_id: UUID
+    email: Email
+    sent_at: datetime
