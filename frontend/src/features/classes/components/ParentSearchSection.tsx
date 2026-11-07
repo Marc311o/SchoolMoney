@@ -33,9 +33,9 @@ export function ParentSearchSection({
   existingParentIds,
 }: ParentSearchSectionProps) {
   const [email, setEmail] = useState('')
-  const [selectedParents, setSelectedParents] = useState<
-    ParentSearchResult[]
-  >([])
+  const [selectedParents, setSelectedParents] = useState<ParentSearchResult[]>(
+    [],
+  )
   const [listOpen, setListOpen] = useState(false)
   const [inputElement, setInputElement] = useState<HTMLDivElement | null>(null)
   const [isSending, setIsSending] = useState(false)
@@ -113,9 +113,7 @@ export function ParentSearchSection({
   }
 
   const showResults =
-    listOpen &&
-    query.length >= 2 &&
-    Boolean(availableParents?.length)
+    listOpen && query.length >= 2 && Boolean(availableParents?.length)
 
   return (
     <WhiteCard>
@@ -123,8 +121,8 @@ export function ParentSearchSection({
         <Typography variant="h2">Invite parents</Typography>
 
         <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-          Search for parents by email and select everyone you want to invite
-          to this class.
+          Search for parents by email and select everyone you want to invite to
+          this class.
         </Typography>
 
         <Box ref={setInputElement} sx={{ width: '100%', mt: 2 }}>
@@ -196,8 +194,7 @@ export function ParentSearchSection({
                     color: 'inherit',
                     bgcolor: 'background.paper',
                     border: 0,
-                    borderBottom:
-                      index < availableParents.length - 1 ? 1 : 0,
+                    borderBottom: index < availableParents.length - 1 ? 1 : 0,
                     borderColor: 'divider',
                     cursor: 'pointer',
                     '&:hover': {
@@ -247,9 +244,7 @@ export function ParentSearchSection({
           !isSearching &&
           !isSearchError &&
           availableParents?.length === 0 && (
-            <Alert severity="info">
-              No available parents found.
-            </Alert>
+            <Alert severity="info">No available parents found.</Alert>
           )}
 
         {selectedParents.length > 0 && (
@@ -323,8 +318,8 @@ export function ParentSearchSection({
             {sendResult.failed > 0 && (
               <Alert severity="error">
                 Could not send {sendResult.failed}{' '}
-                {sendResult.failed === 1 ? 'invitation' : 'invitations'}.
-                You can try again.
+                {sendResult.failed === 1 ? 'invitation' : 'invitations'}. You
+                can try again.
               </Alert>
             )}
           </>
