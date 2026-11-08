@@ -1,8 +1,9 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import AliasPath, Field, StringConstraints, model_validator
+from pydantic import AliasChoices, AliasPath, Field, StringConstraints, model_validator
 
 from app.common.schemas import NonNegativeMoney, PositiveMoney, SchemaBase
 from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
@@ -27,6 +28,8 @@ InvoiceTitle = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=255),
 ]
+
+MoneyTotal = Annotated[Decimal, Field(ge=0, decimal_places=2)]
 
 
 def _reject_explicit_nulls(data: Any, fields: tuple[str, ...]) -> Any:
@@ -97,7 +100,9 @@ class FundraiserRead(SchemaBase):
     is_blocked: bool
     created_at: datetime
     closed_at: datetime | None
-    iban: str | None = Field(default=None, validation_alias=AliasPath("account", "iban"))
+    iban: str | None = Field(
+        default=None, validation_alias=AliasChoices("iban", AliasPath("account", "iban"))
+    )
 
 
 class FundraiserObligationRead(SchemaBase):
@@ -167,8 +172,8 @@ class InvoiceRead(SchemaBase):
 class ChildFundraiserProgressRead(SchemaBase):
     child_id: UUID
     required_amount_per_child: PositiveMoney
-    paid_amount: NonNegativeMoney
-    refunded_amount: NonNegativeMoney
+    paid_amount: MoneyTotal
+    refunded_amount: MoneyTotal
     remaining_amount: NonNegativeMoney
     is_paid: bool
 
@@ -176,12 +181,17 @@ class ChildFundraiserProgressRead(SchemaBase):
 class FundraiserProgressRead(SchemaBase):
     fundraiser_id: UUID
     children_count: int = Field(ge=0)
-    required_total: NonNegativeMoney
-    paid_total: NonNegativeMoney
-    refunded_total: NonNegativeMoney
-    treasurer_withdrawn_total: NonNegativeMoney
-    treasurer_deposited_total: NonNegativeMoney
+    required_total: MoneyTotal
+    paid_total: MoneyTotal
+    refunded_total: MoneyTotal
+    treasurer_withdrawn_total: MoneyTotal
+    treasurer_deposited_total: MoneyTotal
     current_balance: NonNegativeMoney
+
+
+class FundraiserDetailRead(FundraiserRead):
+    children: list[ChildFundraiserProgressRead]
+    progress: FundraiserProgressRead
 
 
 class FundraiserCloseResult(SchemaBase):

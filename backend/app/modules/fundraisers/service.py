@@ -1,8 +1,10 @@
+from collections import defaultdict
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from sqlalchemy import Select, delete, or_, select
+from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.modules.accounts.enums import AccountType
@@ -11,10 +13,24 @@ from app.modules.accounts.utils import generate_fake_iban
 from app.modules.children.models import Child
 from app.modules.classrooms.models import ChildClassMembership, SchoolClass
 from app.modules.classrooms.service import active_class_children_query, require_treasurer
-from app.modules.fundraisers.enums import FundraiserStatus
-from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, FundraiserPayment
-from app.modules.fundraisers.schemas import FundraiserCreate, FundraiserRead, FundraiserUpdate
+from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
+from app.modules.fundraisers.models import (
+    Fundraiser,
+    FundraiserObligation,
+    FundraiserPayment,
+    TreasurerOperation,
+)
+from app.modules.fundraisers.schemas import (
+    ChildFundraiserProgressRead,
+    FundraiserCreate,
+    FundraiserDetailRead,
+    FundraiserProgressRead,
+    FundraiserRead,
+    FundraiserUpdate,
+)
 from app.modules.users.models import User
+
+ZERO = Decimal("0.00")
 
 
 def _fundraisers_query(user: User, *, treasurer_only: bool = False) -> Select[tuple[Fundraiser]]:
@@ -79,8 +95,69 @@ def list_fundraisers(db: Session, user: User, class_id: UUID | None = None) -> l
     return [FundraiserRead.model_validate(fundraiser) for fundraiser in rows]
 
 
-def get_fundraiser(db: Session, user: User, fundraiser_id: UUID) -> FundraiserRead:
-    return FundraiserRead.model_validate(_get_fundraiser(db, user, fundraiser_id))
+def get_fundraiser(db: Session, user: User, fundraiser_id: UUID) -> FundraiserDetailRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, lock="share")
+    child_ids = db.scalars(
+        select(FundraiserObligation.child_id)
+        .where(FundraiserObligation.fundraiser_id == fundraiser.id)
+        .order_by(FundraiserObligation.child_id)
+    ).all()
+    payments = db.scalars(
+        select(FundraiserPayment)
+        .where(FundraiserPayment.fundraiser_id == fundraiser.id)
+        .options(
+            joinedload(FundraiserPayment.transaction),
+            joinedload(FundraiserPayment.refund_transaction),
+        )
+    )
+    paid_by_child: dict[UUID, Decimal] = defaultdict(lambda: ZERO)
+    refunded_by_child: dict[UUID, Decimal] = defaultdict(lambda: ZERO)
+    for payment in payments:
+        if payment.refunded_at is None:
+            paid_by_child[payment.child_id] += payment.transaction.amount
+        else:
+            # Older full-refund rows can lack a linked refund transaction.
+            refund = payment.refund_transaction or payment.transaction
+            refunded_by_child[payment.child_id] += refund.amount
+
+    rate = fundraiser.required_amount_per_child
+    children = []
+    for child_id in child_ids:
+        paid = paid_by_child[child_id]
+        remaining = max(rate - paid, ZERO)
+        children.append(
+            ChildFundraiserProgressRead(
+                child_id=child_id,
+                required_amount_per_child=rate,
+                paid_amount=paid,
+                refunded_amount=refunded_by_child[child_id],
+                remaining_amount=remaining,
+                is_paid=remaining == ZERO,
+            )
+        )
+
+    operations = dict(
+        db.execute(
+            select(TreasurerOperation.direction, func.sum(TreasurerOperation.amount))
+            .where(TreasurerOperation.fundraiser_id == fundraiser.id)
+            .group_by(TreasurerOperation.direction)
+        ).all()
+    )
+    progress = FundraiserProgressRead(
+        fundraiser_id=fundraiser.id,
+        children_count=len(child_ids),
+        required_total=rate * len(child_ids),
+        paid_total=sum(paid_by_child.values(), ZERO),
+        refunded_total=sum(refunded_by_child.values(), ZERO),
+        treasurer_withdrawn_total=operations.get(TreasurerOperationDirection.WITHDRAWAL, ZERO),
+        treasurer_deposited_total=operations.get(TreasurerOperationDirection.DEPOSIT, ZERO),
+        current_balance=fundraiser.account.balance if fundraiser.account is not None else ZERO,
+    )
+    return FundraiserDetailRead(
+        **FundraiserRead.model_validate(fundraiser).model_dump(),
+        children=children,
+        progress=progress,
+    )
 
 
 def create_fundraiser(db: Session, user: User, data: FundraiserCreate) -> FundraiserRead:

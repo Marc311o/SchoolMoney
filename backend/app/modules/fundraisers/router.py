@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.fundraisers import service
-from app.modules.fundraisers.schemas import FundraiserCreate, FundraiserRead, FundraiserUpdate
+from app.modules.fundraisers.schemas import (
+    FundraiserCreate,
+    FundraiserDetailRead,
+    FundraiserRead,
+    FundraiserUpdate,
+)
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/fundraisers", tags=["fundraisers"])
@@ -31,7 +36,7 @@ def create_fundraiser(
 
 
 @router.get("/{fundraiser_id}")
-def get_fundraiser(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> FundraiserRead:
+def get_fundraiser(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> FundraiserDetailRead:
     return service.get_fundraiser(db, user, fundraiser_id)
 
 
