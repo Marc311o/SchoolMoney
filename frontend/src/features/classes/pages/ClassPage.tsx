@@ -156,7 +156,6 @@ export function ClassPage() {
           {schoolClass.name}
         </Typography>
       </Breadcrumbs>
-
       <PageHeader
         title={`Class ${schoolClass.name}`}
         badge={isTreasurer && <StatusBadge>You are treasurer</StatusBadge>}
@@ -191,7 +190,6 @@ export function ClassPage() {
           </Stack>
         )}
       </PageHeader>
-
       {isTreasurer && (
         <Box
           sx={{
@@ -212,7 +210,6 @@ export function ClassPage() {
           />
         </Box>
       )}
-
       {isTreasurer && waiting.length > 0 && (
         <PageSection title="Waiting for approval" count={waiting.length}>
           <WaitingList
@@ -230,7 +227,6 @@ export function ClassPage() {
           />
         </PageSection>
       )}
-
       <PageSection title="Children" count={members.length}>
         <ClassChildrenList
           members={members}
@@ -244,7 +240,19 @@ export function ClassPage() {
         />
       </PageSection>
 
-      <PageSection title="Fundraisers" count={filteredFundraisers.length}>
+      // TODO: list of fundraisers as a separate component
+      <PageSection
+        title="Fundraisers"
+        count={filteredFundraisers.length}
+        action={
+          fundraisers.length > 0 && (
+            <FundraiserFilter
+              value={fundraiserFilter}
+              onChange={setFundraiserFilter}
+            />
+          )
+        }
+      >
         {fundraisersPending ? (
           <CircularProgress />
         ) : fundraisers.length === 0 ? (
@@ -258,11 +266,6 @@ export function ClassPage() {
           />
         ) : (
           <Stack spacing={2}>
-            <FundraiserFilter
-              value={fundraiserFilter}
-              onChange={setFundraiserFilter}
-            />
-
             {filteredFundraisers.length === 0 ? (
               <EmptyState
                 dashed
@@ -289,7 +292,6 @@ export function ClassPage() {
           </Stack>
         )}
       </PageSection>
-
       {!isTreasurer && (
         <LeaveClassSection
           myChildren={members.filter((m) => m.parent.id === me?.id)}
@@ -300,7 +302,6 @@ export function ClassPage() {
           }}
         />
       )}
-
       <ConfirmDialog
         open={toReject !== null}
         title={`Reject ${toReject ? fullName(toReject.child) : ''}?`}
@@ -317,7 +318,6 @@ export function ClassPage() {
         onConfirm={reject}
         onClose={() => setToReject(null)}
       />
-
       <ConfirmDialog
         open={toRemove !== null}
         title={`Remove ${toRemove ? fullName(toRemove.child) : ''}?`}
@@ -335,7 +335,6 @@ export function ClassPage() {
         onConfirm={remove}
         onClose={() => setToRemove(null)}
       />
-
       <AppSnackbar
         key={toast?.id}
         open={toast !== null}
@@ -344,7 +343,6 @@ export function ClassPage() {
         variant="standard"
         onClose={() => setToast(null)}
       />
-
       <CreateFundraiserDialog
         open={createFundraiserOpen}
         classId={classId}
