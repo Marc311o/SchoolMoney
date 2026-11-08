@@ -30,6 +30,10 @@ import { WaitingList } from '@/features/classes/components/WaitingList'
 import { ParentSearchSection } from '@/features/classes/components/ParentSearchSection'
 import { fullName } from '@/lib/names'
 import { useState } from 'react'
+import AppButton from '@/components/AppButton'
+import CreateFundraiserDialog from '@/features/fundraisers/components/CreateFundraiserDialog'
+import { useCreateFundraiser, useFundraisers } from '@/features/fundraisers/api'
+import { type FundraiserCreate } from '@/features/fundraisers/api'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
@@ -46,6 +50,11 @@ export function ClassPage() {
   const removeMembership = useRemoveMembership(classId)
   const [toReject, setToReject] = useState<ClassMemberWithParent | null>(null)
   const [toRemove, setToRemove] = useState<ClassMemberWithParent | null>(null)
+
+  const [createFundraiserOpen, setCreateFundraiserOpen] = useState(false)
+  const createFundraiser = useCreateFundraiser()
+  const { data: fundraisers = [], isPending: fundraisersPending } =
+    useFundraisers(classId)
 
   const notify = (message: string, severity: SnackbarSeverity = 'success') =>
     setToast({ message, severity, id: Date.now() })
@@ -96,6 +105,18 @@ export function ClassPage() {
     })
   }
 
+  const handleCreateFundraiser = (payload: FundraiserCreate) => {
+    createFundraiser.mutate(payload, {
+      onSuccess: () => {
+        notify('Fundraiser created successfully')
+        setCreateFundraiserOpen(false)
+      },
+      onError: () => {
+        notify('Could not create fundraiser', 'error')
+      },
+    })
+  }
+
   if (isPending) {
     return <CircularProgress sx={{ m: 4 }} />
   }
@@ -132,6 +153,17 @@ export function ClassPage() {
         subtitle={[schoolClass.school_name, childrenCount(members.length)]
           .filter(Boolean)
           .join(' · ')}
+        actions={
+          isTreasurer && (
+            <AppButton
+              label="New fundraiser"
+              onClick={() => {
+                createFundraiser.reset()
+                setCreateFundraiserOpen(true)
+              }}
+            />
+          )
+        }
       >
         {!isTreasurer && (
           <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
@@ -202,9 +234,56 @@ export function ClassPage() {
         />
       </PageSection>
 
-      <PageSection title="Fundraisers">
-        <EmptyState dashed description="Coming soon." />
+      // TODO: change layout !!!
+      <PageSection title="Fundraisers" count={fundraisers.length}>
+        {fundraisersPending ? (
+          <CircularProgress />
+        ) : fundraisers.length === 0 ? (
+          <EmptyState
+            dashed
+            description={
+              isTreasurer
+                ? 'No fundraisers yet. Create your first fundraiser.'
+                : 'There are no fundraisers in this class yet.'
+            }
+          />
+        ) : (
+          <Stack spacing={2}>
+            {fundraisers.map((fundraiser) => (
+              <Box
+                key={fundraiser.id}
+                sx={{
+                  p: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                }}
+              >
+                <Typography sx={{ fontWeight: 700 }}>
+                  {fundraiser.name}
+                </Typography>
+
+                {fundraiser.description && (
+                  <Typography color="text.secondary" variant="body2">
+                    {fundraiser.description}
+                  </Typography>
+                )}
+
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {fundraiser.required_amount_per_child} per child
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  {fundraiser.start_date} – {fundraiser.end_date}
+                </Typography>
+
+                <StatusBadge>{fundraiser.status}</StatusBadge>
+              </Box>
+            ))}
+          </Stack>
+        )}
       </PageSection>
+      // TODO: end
 
       {!isTreasurer && (
         <LeaveClassSection
@@ -259,6 +338,15 @@ export function ClassPage() {
         severity={toast?.severity}
         variant="standard"
         onClose={() => setToast(null)}
+      />
+
+      <CreateFundraiserDialog
+        open={createFundraiserOpen}
+        classId={classId}
+        onClose={() => setCreateFundraiserOpen(false)}
+        onConfirm={handleCreateFundraiser}
+        loading={createFundraiser.isPending}
+        error={createFundraiser.error}
       />
     </Stack>
   )
