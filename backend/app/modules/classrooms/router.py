@@ -12,7 +12,9 @@ from app.modules.classrooms.schemas import (
     ClassAccessCodeCreate,
     ClassAccessCodeRead,
     ClassDetailRead,
+    ClassInviteCreate,
     ClassInviteDetailsRead,
+    ClassInviteSentRead,
     ClassJoinRequest,
     ClassListItemRead,
     MembershipReviewRequest,
@@ -167,3 +169,28 @@ def get_invite_details(
     db: DbSession,
 ) -> ClassInviteDetailsRead:
     return service.get_invite_details(db, code)
+
+
+@router.post(
+    "/{class_id}/invites",
+    response_model=ClassInviteSentRead,
+    status_code=status.HTTP_200_OK,
+    summary="Send a class invitation email to a parent (treasurer only)",
+    responses={
+        404: {"description": "Class or parent not found"},
+        409: {"description": "No active access code or invalid invitation"},
+        502: {"description": "Email delivery failed"},
+    },
+)
+def send_class_invite(
+    class_id: UUID,
+    payload: ClassInviteCreate,
+    user: CurrentUser,
+    db: DbSession,
+) -> ClassInviteSentRead:
+    return service.send_class_invite(
+        db=db,
+        user=user,
+        class_id=class_id,
+        payload=payload,
+    )
