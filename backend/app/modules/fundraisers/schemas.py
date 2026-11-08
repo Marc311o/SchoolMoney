@@ -97,6 +97,7 @@ class FundraiserRead(SchemaBase):
     is_blocked: bool
     created_at: datetime
     closed_at: datetime | None
+    iban: str | None = Field(default=None, validation_alias=AliasPath("account", "iban"))
 
 
 class FundraiserObligationRead(SchemaBase):

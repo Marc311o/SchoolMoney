@@ -4,12 +4,13 @@ from secrets import token_urlsafe
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select, update
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
 from app.modules.auth.mailer import EmailDeliveryError
 from app.modules.children.models import Child
+from app.modules.children.service import active_children_query
 from app.modules.classrooms.enums import ClassRole, MembershipStatus
 from app.modules.classrooms.mailer import send_class_invite_email
 from app.modules.classrooms.models import ChildClassMembership, ClassAccessCode, SchoolClass
@@ -38,6 +39,14 @@ CURRENT_MEMBERSHIP = (MembershipStatus.ACTIVE, MembershipStatus.PENDING)
 
 def _class_not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+
+
+def active_class_children_query() -> Select[tuple[Child]]:
+    return (
+        active_children_query()
+        .join(ChildClassMembership, ChildClassMembership.child_id == Child.id)
+        .where(ChildClassMembership.status == MembershipStatus.ACTIVE)
+    )
 
 
 def list_classes(db: Session, user: User) -> list[ClassListItemRead]:
@@ -104,13 +113,11 @@ def get_class(db: Session, user: User, class_id: UUID) -> ClassDetailRead:
     is_treasurer = school_class.treasurer_id == user.id
     if not is_treasurer:
         has_active_child = db.scalar(
-            select(ChildClassMembership.id)
-            .join(Child, Child.id == ChildClassMembership.child_id)
+            active_class_children_query()
+            .with_only_columns(Child.id)
             .where(
                 ChildClassMembership.class_id == class_id,
-                ChildClassMembership.status == MembershipStatus.ACTIVE,
                 Child.parent_id == user.id,
-                Child.deleted_at.is_(None),
             )
             .limit(1)
         )
@@ -169,7 +176,7 @@ def create_class(
     return SchoolClassRead.model_validate(school_class)
 
 
-def _require_treasurer(
+def require_treasurer(
     db: Session, user: User, class_id: UUID, *, lock: bool = False
 ) -> SchoolClass:
     statement = select(SchoolClass).where(
@@ -189,7 +196,7 @@ def _require_treasurer(
 
 
 def get_access_code(db: Session, user: User, class_id: UUID) -> ClassAccessCodeRead | None:
-    _require_treasurer(db, user, class_id)
+    require_treasurer(db, user, class_id)
 
     access_code = db.scalar(
         select(ClassAccessCode)
@@ -209,7 +216,7 @@ def get_access_code(db: Session, user: User, class_id: UUID) -> ClassAccessCodeR
 def regenerate_access_code(
     db: Session, user: User, class_id: UUID, data: ClassAccessCodeCreate
 ) -> ClassAccessCodeRead:
-    _require_treasurer(db, user, class_id, lock=True)
+    require_treasurer(db, user, class_id, lock=True)
 
     db.execute(
         update(ClassAccessCode)
@@ -348,7 +355,7 @@ def review_membership(
     payload: MembershipReviewRequest,
 ) -> ChildClassMembershipRead:
     """Approve (ACTIVE) or reject (REJECTED) a pending join request. Treasurer only."""
-    _require_treasurer(db, user, class_id)
+    require_treasurer(db, user, class_id)
 
     membership = db.scalar(
         select(ChildClassMembership).where(
@@ -469,7 +476,7 @@ def send_class_invite(
 ) -> ClassInviteSentRead:
     """Send an invitation email to a parent. Treasurer only."""
 
-    school_class = _require_treasurer(db, user, class_id)
+    school_class = require_treasurer(db, user, class_id)
 
     # Find the selected parent.
     parent = db.scalar(
