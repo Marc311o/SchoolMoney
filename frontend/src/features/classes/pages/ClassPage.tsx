@@ -10,7 +10,6 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
 import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
-import EmptyState from '@/components/EmptyState'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
@@ -34,7 +33,7 @@ import AppButton from '@/components/AppButton'
 import CreateFundraiserDialog from '@/features/fundraisers/components/CreateFundraiserDialog'
 import { useCreateFundraiser, useFundraisers } from '@/features/fundraisers/api'
 import { type FundraiserCreate } from '@/features/fundraisers/api'
-import { FundraiserCard } from '@/features/fundraisers/components/FundraiserCard'
+import FundraiserList from '@/features/fundraisers/components/FundraiserList'
 import FundraiserFilter, { type FundraiserFilterValue, } from '@/features/classes/components/FundraiserFilter'
 
 export function ClassPage() {
@@ -240,7 +239,6 @@ export function ClassPage() {
         />
       </PageSection>
 
-      // TODO: list of fundraisers as a separate component
       <PageSection
         title="Fundraisers"
         count={filteredFundraisers.length}
@@ -253,45 +251,14 @@ export function ClassPage() {
           )
         }
       >
-        {fundraisersPending ? (
-          <CircularProgress />
-        ) : fundraisers.length === 0 ? (
-          <EmptyState
-            dashed
-            description={
-              isTreasurer
-                ? 'No fundraisers yet. Create your first fundraiser.'
-                : 'There are no fundraisers in this class yet.'
-            }
-          />
-        ) : (
-          <Stack spacing={2}>
-            {filteredFundraisers.length === 0 ? (
-              <EmptyState
-                dashed
-                description="No fundraisers match this filter."
-              />
-            ) : (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 2.5,
-                  gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: 'repeat(2, minmax(0, 1fr))',
-                    lg: 'repeat(3, minmax(0, 1fr))',
-                  },
-                  alignItems: 'stretch',
-                }}
-              >
-                {filteredFundraisers.map((fundraiser) => (
-                  <FundraiserCard key={fundraiser.id} fundraiser={fundraiser} />
-                ))}
-              </Box>
-            )}
-          </Stack>
-        )}
+        <FundraiserList
+          fundraisers={fundraisers}
+          filteredFundraisers={filteredFundraisers}
+          loading={fundraisersPending}
+          isTreasurer={isTreasurer}
+        />
       </PageSection>
+
       {!isTreasurer && (
         <LeaveClassSection
           myChildren={members.filter((m) => m.parent.id === me?.id)}
