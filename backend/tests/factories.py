@@ -80,7 +80,7 @@ def make_fundraiser(
         class_id=school_class.id,
         author_id=school_class.treasurer_id,
         name=name or f"Trip ({status})",
-        required_amount=amount,
+        required_amount_per_child=amount,
         start_date=date.today(),
         end_date=date.today() + timedelta(days=30),
         status=status,
@@ -95,7 +95,7 @@ def make_obligation(db: Session, fundraiser: Fundraiser, child_id: UUID) -> Fund
         id=uuid4(),
         fundraiser_id=fundraiser.id,
         child_id=child_id,
-        required_amount_per_child=fundraiser.required_amount,
+        required_amount_per_child=fundraiser.required_amount_per_child,
     )
     db.add(obligation)
     db.flush()
@@ -112,7 +112,7 @@ def make_payment(
         id=uuid4(),
         from_account_id=parent_account.id,
         type=TransactionType.FUNDRAISER_PAYMENT,
-        amount=fundraiser.required_amount,
+        amount=fundraiser.required_amount_per_child,
         created_by=child.parent_id,
     )
     db.add(transaction)
@@ -123,7 +123,7 @@ def make_payment(
         child_id=child.id,
         payer_id=child.parent_id,
         transaction_id=transaction.id,
-        amount=fundraiser.required_amount,
+        amount=fundraiser.required_amount_per_child,
         refunded_at=datetime.now(UTC) if refunded else None,
     )
     db.add(payment)

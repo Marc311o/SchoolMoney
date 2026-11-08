@@ -372,7 +372,7 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
             author_id=treasurer.id,
             name=f"{name} · {data.school_class.name}",
             description=description,
-            required_amount=amount,
+            required_amount_per_child=amount,
             start_date=start,
             end_date=end,
             status=status,
