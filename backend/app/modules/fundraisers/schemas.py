@@ -103,7 +103,6 @@ class FundraiserObligationRead(SchemaBase):
     id: UUID
     fundraiser_id: UUID
     child_id: UUID
-    required_amount_per_child: PositiveMoney
     created_at: datetime
 
 

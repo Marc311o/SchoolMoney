@@ -399,7 +399,6 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
                     id=uuid4(),
                     fundraiser_id=fundraiser.id,
                     child_id=child.id,
-                    required_amount_per_child=amount,
                 )
             )
 

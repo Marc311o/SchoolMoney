@@ -95,7 +95,6 @@ def make_obligation(db: Session, fundraiser: Fundraiser, child_id: UUID) -> Fund
         id=uuid4(),
         fundraiser_id=fundraiser.id,
         child_id=child_id,
-        required_amount_per_child=fundraiser.required_amount_per_child,
     )
     db.add(obligation)
     db.flush()

@@ -179,11 +179,6 @@ class FundraiserObligation(Base):
         nullable=False,
     )
 
-    required_amount_per_child: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        nullable=False,
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
