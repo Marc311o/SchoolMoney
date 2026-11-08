@@ -24,6 +24,7 @@ from app.modules.fundraisers.schemas import (
     ChildFundraiserProgressRead,
     FundraiserCreate,
     FundraiserDetailRead,
+    FundraiserPaymentRead,
     FundraiserProgressRead,
     FundraiserRead,
     FundraiserUpdate,
@@ -158,6 +159,17 @@ def get_fundraiser(db: Session, user: User, fundraiser_id: UUID) -> FundraiserDe
         children=children,
         progress=progress,
     )
+
+
+def list_payments(db: Session, user: User, fundraiser_id: UUID) -> list[FundraiserPaymentRead]:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id)
+    payments = db.scalars(
+        select(FundraiserPayment)
+        .where(FundraiserPayment.fundraiser_id == fundraiser.id)
+        .options(joinedload(FundraiserPayment.transaction))
+        .order_by(FundraiserPayment.paid_at.desc(), FundraiserPayment.id.desc())
+    )
+    return [FundraiserPaymentRead.model_validate(payment) for payment in payments]
 
 
 def create_fundraiser(db: Session, user: User, data: FundraiserCreate) -> FundraiserRead:

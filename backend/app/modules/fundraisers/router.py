@@ -10,6 +10,7 @@ from app.modules.fundraisers import service
 from app.modules.fundraisers.schemas import (
     FundraiserCreate,
     FundraiserDetailRead,
+    FundraiserPaymentRead,
     FundraiserRead,
     FundraiserUpdate,
 )
@@ -38,6 +39,13 @@ def create_fundraiser(
 @router.get("/{fundraiser_id}")
 def get_fundraiser(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> FundraiserDetailRead:
     return service.get_fundraiser(db, user, fundraiser_id)
+
+
+@router.get("/{fundraiser_id}/payments")
+def list_payments(
+    fundraiser_id: UUID, user: CurrentUser, db: DbSession
+) -> list[FundraiserPaymentRead]:
+    return service.list_payments(db, user, fundraiser_id)
 
 
 @router.patch("/{fundraiser_id}")
