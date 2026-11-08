@@ -47,7 +47,7 @@ class FundraiserCreate(SchemaBase):
     name: FundraiserName
     description: TextDescription | None = None
     logo_url: ResourceUrl | None = None
-    required_amount: PositiveMoney
+    required_amount_per_child: PositiveMoney
     start_date: date
     end_date: date
 
@@ -61,7 +61,7 @@ class FundraiserUpdate(SchemaBase):
     name: FundraiserName | None = None
     description: TextDescription | None = None
     logo_url: ResourceUrl | None = None
-    required_amount: PositiveMoney | None = None
+    required_amount_per_child: PositiveMoney | None = None
     start_date: date | None = None
     end_date: date | None = None
 
@@ -70,7 +70,7 @@ class FundraiserUpdate(SchemaBase):
     def non_nullable_database_fields(cls, data: Any) -> Any:
         return _reject_explicit_nulls(
             data,
-            ("name", "required_amount", "start_date", "end_date"),
+            ("name", "required_amount_per_child", "start_date", "end_date"),
         )
 
     @model_validator(mode="after")
@@ -90,7 +90,7 @@ class FundraiserRead(SchemaBase):
     name: str
     description: str | None
     logo_url: str | None
-    required_amount: PositiveMoney
+    required_amount_per_child: PositiveMoney
     start_date: date
     end_date: date
     status: FundraiserStatus
@@ -166,7 +166,7 @@ class InvoiceRead(SchemaBase):
 
 class ChildFundraiserProgressRead(SchemaBase):
     child_id: UUID
-    required_amount: PositiveMoney
+    required_amount_per_child: PositiveMoney
     paid_amount: NonNegativeMoney
     refunded_amount: NonNegativeMoney
     remaining_amount: NonNegativeMoney
