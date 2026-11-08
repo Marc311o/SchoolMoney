@@ -1,18 +1,37 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Text, Uuid, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Text, Uuid, func, text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.modules.chat.enums import ChatKind
 
 
 class Chat(Base):
     __tablename__ = "chats"
+    __table_args__ = (
+        CheckConstraint(
+            "(kind = 'CLASS') = (class_id IS NOT NULL)",
+            name="class_id_matches_kind",
+        ),
+        Index(
+            "uq_chats_one_per_class",
+            "class_id",
+            unique=True,
+            postgresql_where=text("kind = 'CLASS'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
+    )
+
+    kind: Mapped[ChatKind] = mapped_column(
+        SAEnum(ChatKind, name="chat_kind"),
+        nullable=False,
     )
 
     class_id: Mapped[UUID | None] = mapped_column(
@@ -78,6 +97,7 @@ class ChatParticipant(Base):
 
 class Message(Base):
     __tablename__ = "messages"
+    __table_args__ = (Index("ix_messages_chat_id_created_at", "chat_id", "created_at"),)
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),

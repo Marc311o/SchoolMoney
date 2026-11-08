@@ -23,6 +23,8 @@ interface AppAvatarProps {
   src?: string | null
   size?: number
   randomColor?: boolean
+  label?: string
+  square?: boolean
 }
 
 export default function AppAvatar({
@@ -30,24 +32,30 @@ export default function AppAvatar({
   src,
   size = 56,
   randomColor = true,
+  label,
+  square = false,
 }: AppAvatarProps) {
   const color = randomColor ? colorFor(name) : { bg: '#E9DCF5', fg: '#4B2A6B' }
+  const text = label ?? name.trim().charAt(0).toUpperCase()
 
   return (
     <Avatar
       src={src ?? undefined}
       alt={name}
+      variant={square ? 'rounded' : 'circular'}
       sx={{
         width: size,
         height: size,
+        flexShrink: 0,
+        borderRadius: square ? '12px' : '50%',
         bgcolor: color.bg,
         color: color.fg,
         fontFamily: 'Bricolage Grotesque, Segoe UI, sans-serif',
-        fontSize: size * 0.4,
+        fontSize: size * (text.length > 1 ? 0.36 : 0.4),
         fontWeight: 700,
       }}
     >
-      {name.trim().charAt(0).toUpperCase()}
+      {text}
     </Avatar>
   )
 }
