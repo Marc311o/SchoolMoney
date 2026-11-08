@@ -122,7 +122,6 @@ def make_payment(
         child_id=child.id,
         payer_id=child.parent_id,
         transaction_id=transaction.id,
-        amount=fundraiser.required_amount_per_child,
         refunded_at=datetime.now(UTC) if refunded else None,
     )
     db.add(payment)

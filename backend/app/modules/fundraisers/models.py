@@ -229,11 +229,6 @@ class FundraiserPayment(Base):
         nullable=False,
     )
 
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        nullable=False,
-    )
-
     paid_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

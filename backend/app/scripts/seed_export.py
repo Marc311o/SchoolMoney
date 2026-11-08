@@ -223,7 +223,7 @@ def export_xlsx(db: Session, path: Path, password: str, logins: list[tuple[str, 
                 fundraisers[p.fundraiser_id].name,
                 f"{children[p.child_id].first_name} {children[p.child_id].last_name}",
                 users[p.payer_id].email,
-                p.amount,
+                p.transaction.amount,
                 p.paid_at,
                 p.refunded_at,
             ]

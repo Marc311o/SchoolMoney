@@ -208,7 +208,6 @@ def pay_for_child(
         child_id=child.id,
         payer_id=payer.id,
         transaction_id=transaction.id,
-        amount=amount,
         paid_at=now(),
     )
     db.add(payment)
@@ -449,7 +448,7 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
             for payment in payments:
                 refund = move_money(
                     db,
-                    amount=payment.amount,
+                    amount=payment.transaction.amount,
                     type_=TransactionType.CLOSE_REFUND,
                     created_by=treasurer,
                     from_account=fundraiser.account,

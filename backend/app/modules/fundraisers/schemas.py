@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import Field, StringConstraints, model_validator
+from pydantic import AliasPath, Field, StringConstraints, model_validator
 
 from app.common.schemas import NonNegativeMoney, PositiveMoney, SchemaBase
 from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
@@ -108,7 +108,6 @@ class FundraiserObligationRead(SchemaBase):
 
 class FundraiserPaymentCreate(SchemaBase):
     child_id: UUID
-    amount: PositiveMoney
 
 
 class FundraiserPaymentRead(SchemaBase):
@@ -117,7 +116,7 @@ class FundraiserPaymentRead(SchemaBase):
     child_id: UUID
     payer_id: UUID
     transaction_id: UUID
-    amount: PositiveMoney
+    amount: PositiveMoney = Field(validation_alias=AliasPath("transaction", "amount"))
     paid_at: datetime
     refunded_at: datetime | None
     refund_transaction_id: UUID | None
