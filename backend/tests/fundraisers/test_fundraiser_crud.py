@@ -24,14 +24,12 @@ def test_treasurer_creates_fundraiser_with_wallet_and_obligations(client, db, au
     data = response.json()
     fundraiser_id = UUID(data["id"])
 
-    # Sprawdzenie utworzenia konta portfela zbiórki
     account = db.scalar(select(Account).where(Account.fundraiser_id == fundraiser_id))
     assert account is not None
     assert account.account_type == AccountType.FUNDRAISER
     assert account.balance == Decimal("0.00")
     assert account.iban == data["iban"]
 
-    # Sprawdzenie snapshotu aktywnych dzieci jako zobowiązań
     obligations = db.scalars(
         select(FundraiserObligation.child_id).where(
             FundraiserObligation.fundraiser_id == fundraiser_id
