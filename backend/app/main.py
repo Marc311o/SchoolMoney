@@ -14,6 +14,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.chat.router import router as chat_router
 from app.modules.children.router import router as children_router
 from app.modules.classrooms.router import router as classes_router
+from app.modules.fundraisers.router import router as fundraisers_router
 from app.modules.users.router import router as users_router
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ app.include_router(children_router, prefix="/api")
 app.include_router(classes_router, prefix="/api")
 app.include_router(accounts_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(fundraisers_router, prefix="/api")
 
 
 @app.get("/api/health")

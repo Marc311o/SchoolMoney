@@ -34,11 +34,12 @@ def _to_read(db: Session, child: Child) -> ChildRead:
     return ChildRead.model_validate(child).model_copy(update={"school_class": school_class})
 
 
-def get_own_child(db: Session, user: User, child_id: UUID) -> Child:
+def get_own_child(db: Session, user: User, child_id: UUID, *, lock: bool = False) -> Child:
     """The parent's own, not removed child. Anything else is a 404, so ids cannot be probed."""
-    child = db.scalar(
-        active_children_query().where(Child.id == child_id, Child.parent_id == user.id)
-    )
+    statement = active_children_query().where(Child.id == child_id, Child.parent_id == user.id)
+    if lock:
+        statement = statement.with_for_update().execution_options(populate_existing=True)
+    child = db.scalar(statement)
     if child is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Child not found")
     return child
@@ -101,7 +102,7 @@ def remove_child(db: Session, user: User, child_id: UUID) -> None:
     2. Unpaid obligations in open and draft fundraisers are deleted.
     3. Current class membership (active or pending) becomes LEFT.
     """
-    child = get_own_child(db, user, child_id)
+    child = get_own_child(db, user, child_id, lock=True)
     now = datetime.now(UTC)
 
     blocking = db.scalars(
