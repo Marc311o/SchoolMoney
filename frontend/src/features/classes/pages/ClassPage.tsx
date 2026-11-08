@@ -35,6 +35,7 @@ import CreateFundraiserDialog from '@/features/fundraisers/components/CreateFund
 import { useCreateFundraiser, useFundraisers } from '@/features/fundraisers/api'
 import { type FundraiserCreate } from '@/features/fundraisers/api'
 import { FundraiserCard } from '@/features/fundraisers/components/FundraiserCard'
+import FundraiserFilter, { type FundraiserFilterValue, } from '@/features/classes/components/FundraiserFilter'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
@@ -56,6 +57,14 @@ export function ClassPage() {
   const createFundraiser = useCreateFundraiser()
   const { data: fundraisers = [], isPending: fundraisersPending } =
     useFundraisers(classId)
+
+  const [fundraiserFilter, setFundraiserFilter] =
+    useState<FundraiserFilterValue>('all')
+
+  const filteredFundraisers = fundraisers.filter((fundraiser) => {
+    if (fundraiserFilter === 'all') return true
+    return fundraiser.status?.toLowerCase() === fundraiserFilter
+  })
 
   const notify = (message: string, severity: SnackbarSeverity = 'success') =>
     setToast({ message, severity, id: Date.now() })
@@ -235,7 +244,7 @@ export function ClassPage() {
         />
       </PageSection>
 
-      <PageSection title="Fundraisers" count={fundraisers.length}>
+      <PageSection title="Fundraisers" count={filteredFundraisers.length}>
         {fundraisersPending ? (
           <CircularProgress />
         ) : fundraisers.length === 0 ? (
@@ -248,22 +257,36 @@ export function ClassPage() {
             }
           />
         ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 2.5,
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, minmax(0, 1fr))',
-                lg: 'repeat(3, minmax(0, 1fr))',
-              },
-              alignItems: 'stretch',
-            }}
-          >
-            {fundraisers.map((fundraiser) => (
-              <FundraiserCard key={fundraiser.id} fundraiser={fundraiser} />
-            ))}
-          </Box>
+          <Stack spacing={2}>
+            <FundraiserFilter
+              value={fundraiserFilter}
+              onChange={setFundraiserFilter}
+            />
+
+            {filteredFundraisers.length === 0 ? (
+              <EmptyState
+                dashed
+                description="No fundraisers match this filter."
+              />
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 2.5,
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, minmax(0, 1fr))',
+                    lg: 'repeat(3, minmax(0, 1fr))',
+                  },
+                  alignItems: 'stretch',
+                }}
+              >
+                {filteredFundraisers.map((fundraiser) => (
+                  <FundraiserCard key={fundraiser.id} fundraiser={fundraiser} />
+                ))}
+              </Box>
+            )}
+          </Stack>
         )}
       </PageSection>
 
