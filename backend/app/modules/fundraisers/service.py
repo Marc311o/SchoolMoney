@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID, uuid4
@@ -22,10 +22,12 @@ from app.modules.fundraisers.models import (
     Fundraiser,
     FundraiserObligation,
     FundraiserPayment,
+    Invoice,
     TreasurerOperation,
 )
 from app.modules.fundraisers.schemas import (
     ChildFundraiserProgressRead,
+    FundraiserCloseResult,
     FundraiserCreate,
     FundraiserDetailRead,
     FundraiserPaymentCreate,
@@ -33,6 +35,11 @@ from app.modules.fundraisers.schemas import (
     FundraiserProgressRead,
     FundraiserRead,
     FundraiserUpdate,
+    InvoiceCreate,
+    InvoiceRead,
+    TreasurerDepositCreate,
+    TreasurerOperationRead,
+    TreasurerWithdrawalCreate,
 )
 from app.modules.users.models import User
 
@@ -349,3 +356,290 @@ def delete_fundraiser(db: Session, user: User, fundraiser_id: UUID) -> None:
         db.execute(delete(Account).where(Account.id == account.id))
     db.execute(delete(Fundraiser).where(Fundraiser.id == fundraiser.id))
     db.commit()
+
+
+def create_withdrawal(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+    data: TreasurerWithdrawalCreate,
+) -> TreasurerOperationRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, treasurer_only=True, lock="update")
+    _require_editable(fundraiser)
+
+    account = _lock_account(db, fundraiser.id)
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser has no account",
+        )
+    if account.balance < data.amount:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Not enough balance on the fundraiser account",
+        )
+
+    treasurer_wallet = get_wallet(db, user, lock=True)
+    transaction = move_money(
+        db,
+        amount=data.amount,
+        type_=TransactionType.TREASURER_WITHDRAWAL,
+        created_by=user,
+        from_account=account,
+        to_account=treasurer_wallet,
+        description=data.description or f"Advance – {fundraiser.name}",
+    )
+    operation = TreasurerOperation(
+        id=uuid4(),
+        fundraiser_id=fundraiser.id,
+        author_id=user.id,
+        transaction_id=transaction.id,
+        direction=TreasurerOperationDirection.WITHDRAWAL,
+        amount=data.amount,
+        description=data.description,
+    )
+    db.add(operation)
+    db.flush()
+    result = TreasurerOperationRead.model_validate(operation)
+    db.commit()
+    return result
+
+
+def create_deposit(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+    data: TreasurerDepositCreate,
+) -> TreasurerOperationRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, treasurer_only=True, lock="update")
+    _require_editable(fundraiser)
+
+    treasurer_wallet = get_wallet(db, user, lock=True)
+    if treasurer_wallet.balance < data.amount:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Not enough money in your wallet",
+        )
+
+    account = _lock_account(db, fundraiser.id)
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser has no account",
+        )
+    if account.balance + data.amount > MAX_ACCOUNT_BALANCE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser account balance would exceed its limit",
+        )
+
+    transaction = move_money(
+        db,
+        amount=data.amount,
+        type_=TransactionType.TREASURER_DEPOSIT,
+        created_by=user,
+        from_account=treasurer_wallet,
+        to_account=account,
+        description=data.description or f"Deposit – {fundraiser.name}",
+    )
+    operation = TreasurerOperation(
+        id=uuid4(),
+        fundraiser_id=fundraiser.id,
+        author_id=user.id,
+        transaction_id=transaction.id,
+        direction=TreasurerOperationDirection.DEPOSIT,
+        amount=data.amount,
+        description=data.description,
+    )
+    db.add(operation)
+    db.flush()
+    result = TreasurerOperationRead.model_validate(operation)
+    db.commit()
+    return result
+
+
+def refund_payment(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+    payment_id: UUID,
+) -> FundraiserPaymentRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, lock="update")
+    if fundraiser.is_blocked or fundraiser.status != FundraiserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser is not accepting refund requests",
+        )
+
+    payment = db.scalar(
+        select(FundraiserPayment)
+        .where(
+            FundraiserPayment.id == payment_id,
+            FundraiserPayment.fundraiser_id == fundraiser.id,
+        )
+        .with_for_update(of=FundraiserPayment)
+        .options(joinedload(FundraiserPayment.transaction))
+    )
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+    if payment.refunded_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Payment already refunded")
+
+    is_treasurer = fundraiser.school_class.treasurer_id == user.id
+    if payment.payer_id != user.id and not is_treasurer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+
+    amount = payment.transaction.amount
+    account = _lock_account(db, fundraiser.id)
+    if account is None or account.balance < amount:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Not enough balance on the fundraiser account",
+        )
+
+    payer_wallet = db.scalar(
+        select(Account).where(Account.user_id == payment.payer_id).with_for_update()
+    )
+    if payer_wallet is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payer wallet not found")
+
+    refund_tx = move_money(
+        db,
+        amount=amount,
+        type_=TransactionType.PAYMENT_REFUND,
+        created_by=user,
+        from_account=account,
+        to_account=payer_wallet,
+        description=f"Refund – {fundraiser.name}",
+    )
+    payment.refunded_at = datetime.now(UTC)
+    payment.refund_transaction = refund_tx
+    db.flush()
+    result = FundraiserPaymentRead.model_validate(payment)
+    db.commit()
+    return result
+
+
+def close_fundraiser(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+) -> FundraiserCloseResult:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, treasurer_only=True, lock="update")
+    if fundraiser.status == FundraiserStatus.CLOSED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser is already closed",
+        )
+
+    account = _lock_account(db, fundraiser.id)
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser has no account",
+        )
+
+    unrefunded_payments = list(
+        db.scalars(
+            select(FundraiserPayment)
+            .where(
+                FundraiserPayment.fundraiser_id == fundraiser.id,
+                FundraiserPayment.refunded_at.is_(None),
+            )
+            .with_for_update(of=FundraiserPayment)
+            .options(joinedload(FundraiserPayment.transaction))
+        )
+    )
+
+    refunded_total = ZERO
+    refund_count = 0
+    now_utc = datetime.now(UTC)
+
+    if account.balance > ZERO and unrefunded_payments:
+        initial_fundraiser_balance = account.balance
+        total_paid = sum(p.transaction.amount for p in unrefunded_payments)
+        remaining_balance = account.balance
+
+        for idx, payment in enumerate(unrefunded_payments):
+            if remaining_balance <= ZERO:
+                break
+
+            if idx == len(unrefunded_payments) - 1:
+                refund_amount = min(payment.transaction.amount, remaining_balance)
+            else:
+                proportional = (
+                    payment.transaction.amount / total_paid * initial_fundraiser_balance
+                ).quantize(Decimal("0.01"))
+                refund_amount = min(payment.transaction.amount, proportional, remaining_balance)
+
+            if refund_amount <= ZERO:
+                continue
+
+            payer_wallet = db.scalar(
+                select(Account).where(Account.user_id == payment.payer_id).with_for_update()
+            )
+            refund_tx = move_money(
+                db,
+                amount=refund_amount,
+                type_=TransactionType.CLOSE_REFUND,
+                created_by=user,
+                from_account=account,
+                to_account=payer_wallet,
+                description=f"Close refund – {fundraiser.name}",
+            )
+            payment.refunded_at = now_utc
+            payment.refund_transaction = refund_tx
+            refunded_total += refund_amount
+            refund_count += 1
+            remaining_balance -= refund_amount
+
+    fundraiser.status = FundraiserStatus.CLOSED
+    fundraiser.closed_at = now_utc
+    db.flush()
+    result = FundraiserCloseResult(
+        fundraiser_id=fundraiser.id,
+        status=FundraiserStatus.CLOSED,
+        closed_at=now_utc,
+        refunded_total=refunded_total,
+        refund_transactions=refund_count,
+    )
+    db.commit()
+    return result
+
+
+def list_invoices(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+) -> list[InvoiceRead]:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id)
+    invoices = db.scalars(
+        select(Invoice)
+        .where(Invoice.fundraiser_id == fundraiser.id)
+        .order_by(Invoice.created_at.desc(), Invoice.id.desc())
+    )
+    return [InvoiceRead.model_validate(inv) for inv in invoices]
+
+
+def create_invoice(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+    data: InvoiceCreate,
+) -> InvoiceRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, treasurer_only=True, lock="update")
+    _require_editable(fundraiser)
+
+    invoice = Invoice(
+        id=uuid4(),
+        fundraiser_id=fundraiser.id,
+        added_by=user.id,
+        title=data.title,
+        amount=data.amount,
+        file_url=data.file_url,
+    )
+    db.add(invoice)
+    db.flush()
+    result = InvoiceRead.model_validate(invoice)
+    db.commit()
+    return result

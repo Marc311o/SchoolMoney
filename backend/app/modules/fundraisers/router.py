@@ -8,12 +8,18 @@ from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.fundraisers import service
 from app.modules.fundraisers.schemas import (
+    FundraiserCloseResult,
     FundraiserCreate,
     FundraiserDetailRead,
     FundraiserPaymentCreate,
     FundraiserPaymentRead,
     FundraiserRead,
     FundraiserUpdate,
+    InvoiceCreate,
+    InvoiceRead,
+    TreasurerDepositCreate,
+    TreasurerOperationRead,
+    TreasurerWithdrawalCreate,
 )
 from app.modules.users.models import User
 
@@ -42,6 +48,20 @@ def get_fundraiser(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> Fun
     return service.get_fundraiser(db, user, fundraiser_id)
 
 
+@router.patch("/{fundraiser_id}")
+def update_fundraiser(
+    fundraiser_id: UUID, payload: FundraiserUpdate, user: CurrentUser, db: DbSession
+) -> FundraiserRead:
+    return service.update_fundraiser(db, user, fundraiser_id, payload)
+
+
+@router.delete("/{fundraiser_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_fundraiser(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> Response:
+    service.delete_fundraiser(db, user, fundraiser_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# Payments and refunds
 @router.get("/{fundraiser_id}/payments")
 def list_payments(
     fundraiser_id: UUID, user: CurrentUser, db: DbSession
@@ -56,14 +76,43 @@ def pay_for_child(
     return service.pay_for_child(db, user, fundraiser_id, payload)
 
 
-@router.patch("/{fundraiser_id}")
-def update_fundraiser(
-    fundraiser_id: UUID, payload: FundraiserUpdate, user: CurrentUser, db: DbSession
-) -> FundraiserRead:
-    return service.update_fundraiser(db, user, fundraiser_id, payload)
+@router.post("/{fundraiser_id}/payments/{payment_id}/refund")
+def refund_payment(
+    fundraiser_id: UUID, payment_id: UUID, user: CurrentUser, db: DbSession
+) -> FundraiserPaymentRead:
+    return service.refund_payment(db, user, fundraiser_id, payment_id)
 
 
-@router.delete("/{fundraiser_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_fundraiser(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> Response:
-    service.delete_fundraiser(db, user, fundraiser_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+# Treasurer operations
+@router.post("/{fundraiser_id}/withdrawals", status_code=status.HTTP_201_CREATED)
+def create_withdrawal(
+    fundraiser_id: UUID, payload: TreasurerWithdrawalCreate, user: CurrentUser, db: DbSession
+) -> TreasurerOperationRead:
+    return service.create_withdrawal(db, user, fundraiser_id, payload)
+
+
+@router.post("/{fundraiser_id}/deposits", status_code=status.HTTP_201_CREATED)
+def create_deposit(
+    fundraiser_id: UUID, payload: TreasurerDepositCreate, user: CurrentUser, db: DbSession
+) -> TreasurerOperationRead:
+    return service.create_deposit(db, user, fundraiser_id, payload)
+
+
+@router.post("/{fundraiser_id}/close")
+def close_fundraiser(
+    fundraiser_id: UUID, user: CurrentUser, db: DbSession
+) -> FundraiserCloseResult:
+    return service.close_fundraiser(db, user, fundraiser_id)
+
+
+# Invoices
+@router.get("/{fundraiser_id}/invoices")
+def list_invoices(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> list[InvoiceRead]:
+    return service.list_invoices(db, user, fundraiser_id)
+
+
+@router.post("/{fundraiser_id}/invoices", status_code=status.HTTP_201_CREATED)
+def create_invoice(
+    fundraiser_id: UUID, payload: InvoiceCreate, user: CurrentUser, db: DbSession
+) -> InvoiceRead:
+    return service.create_invoice(db, user, fundraiser_id, payload)
