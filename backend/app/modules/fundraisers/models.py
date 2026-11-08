@@ -33,7 +33,7 @@ class Fundraiser(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "required_amount > 0",
+            "required_amount_per_child > 0",
             name="fundraiser_amount_positive",
         ),
         CheckConstraint(
@@ -74,7 +74,7 @@ class Fundraiser(Base):
         nullable=True,
     )
 
-    required_amount: Mapped[Decimal] = mapped_column(
+    required_amount_per_child: Mapped[Decimal] = mapped_column(
         Numeric(12, 2),
         nullable=False,
     )
@@ -179,11 +179,6 @@ class FundraiserObligation(Base):
         nullable=False,
     )
 
-    required_amount_per_child: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
-        nullable=False,
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -231,11 +226,6 @@ class FundraiserPayment(Base):
         Uuid(as_uuid=True),
         ForeignKey("transactions.id"),
         unique=True,
-        nullable=False,
-    )
-
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
         nullable=False,
     )
 

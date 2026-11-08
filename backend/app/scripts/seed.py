@@ -208,7 +208,6 @@ def pay_for_child(
         child_id=child.id,
         payer_id=payer.id,
         transaction_id=transaction.id,
-        amount=amount,
         paid_at=now(),
     )
     db.add(payment)
@@ -372,7 +371,7 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
             author_id=treasurer.id,
             name=f"{name} · {data.school_class.name}",
             description=description,
-            required_amount=amount,
+            required_amount_per_child=amount,
             start_date=start,
             end_date=end,
             status=status,
@@ -399,7 +398,6 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
                     id=uuid4(),
                     fundraiser_id=fundraiser.id,
                     child_id=child.id,
-                    required_amount_per_child=amount,
                 )
             )
 
@@ -450,7 +448,7 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
             for payment in payments:
                 refund = move_money(
                     db,
-                    amount=payment.amount,
+                    amount=payment.transaction.amount,
                     type_=TransactionType.CLOSE_REFUND,
                     created_by=treasurer,
                     from_account=fundraiser.account,

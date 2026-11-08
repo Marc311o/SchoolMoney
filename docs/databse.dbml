@@ -200,7 +200,7 @@ Table fundraisers {
   description text
   logo_url varchar(500)
 
-  required_amount decimal(12,2) [not null, note: 'Total amount to be collected; used for progress bar']
+  required_amount_per_child decimal(12,2) [not null, note: 'Total amount to be collected; used for progress bar']
 
   start_date date [not null]
   end_date date [not null]
@@ -222,8 +222,6 @@ Table fundraiser_obligations {
 
   fundraiser_id uuid [not null, ref: > fundraisers.id]
   child_id uuid [not null, ref: > children.id]
-
-  required_amount_per_child decimal(12,2) [not null, note: 'Copy of amount_per_child at the moment the row was created']
 
   created_at timestamptz [not null, default: `now()`]
 

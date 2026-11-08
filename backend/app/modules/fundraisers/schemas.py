@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import Field, StringConstraints, model_validator
+from pydantic import AliasPath, Field, StringConstraints, model_validator
 
 from app.common.schemas import NonNegativeMoney, PositiveMoney, SchemaBase
 from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
@@ -47,7 +47,7 @@ class FundraiserCreate(SchemaBase):
     name: FundraiserName
     description: TextDescription | None = None
     logo_url: ResourceUrl | None = None
-    required_amount: PositiveMoney
+    required_amount_per_child: PositiveMoney
     start_date: date
     end_date: date
 
@@ -61,7 +61,7 @@ class FundraiserUpdate(SchemaBase):
     name: FundraiserName | None = None
     description: TextDescription | None = None
     logo_url: ResourceUrl | None = None
-    required_amount: PositiveMoney | None = None
+    required_amount_per_child: PositiveMoney | None = None
     start_date: date | None = None
     end_date: date | None = None
 
@@ -70,7 +70,7 @@ class FundraiserUpdate(SchemaBase):
     def non_nullable_database_fields(cls, data: Any) -> Any:
         return _reject_explicit_nulls(
             data,
-            ("name", "required_amount", "start_date", "end_date"),
+            ("name", "required_amount_per_child", "start_date", "end_date"),
         )
 
     @model_validator(mode="after")
@@ -90,7 +90,7 @@ class FundraiserRead(SchemaBase):
     name: str
     description: str | None
     logo_url: str | None
-    required_amount: PositiveMoney
+    required_amount_per_child: PositiveMoney
     start_date: date
     end_date: date
     status: FundraiserStatus
@@ -103,13 +103,11 @@ class FundraiserObligationRead(SchemaBase):
     id: UUID
     fundraiser_id: UUID
     child_id: UUID
-    required_amount_per_child: PositiveMoney
     created_at: datetime
 
 
 class FundraiserPaymentCreate(SchemaBase):
     child_id: UUID
-    amount: PositiveMoney
 
 
 class FundraiserPaymentRead(SchemaBase):
@@ -118,7 +116,7 @@ class FundraiserPaymentRead(SchemaBase):
     child_id: UUID
     payer_id: UUID
     transaction_id: UUID
-    amount: PositiveMoney
+    amount: PositiveMoney = Field(validation_alias=AliasPath("transaction", "amount"))
     paid_at: datetime
     refunded_at: datetime | None
     refund_transaction_id: UUID | None
@@ -167,7 +165,7 @@ class InvoiceRead(SchemaBase):
 
 class ChildFundraiserProgressRead(SchemaBase):
     child_id: UUID
-    required_amount: PositiveMoney
+    required_amount_per_child: PositiveMoney
     paid_amount: NonNegativeMoney
     refunded_amount: NonNegativeMoney
     remaining_amount: NonNegativeMoney
