@@ -1,16 +1,20 @@
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.modules.accounts.enums import AccountType
+from app.modules.accounts.enums import AccountType, TransactionType
 from app.modules.accounts.models import Account, Transaction
+from app.modules.accounts.service import get_wallet, move_money
 from app.modules.accounts.utils import generate_fake_iban
 from app.modules.children.models import Child
+from app.modules.children.service import active_children_query
 from app.modules.classrooms.models import ChildClassMembership, SchoolClass
 from app.modules.classrooms.service import active_class_children_query, require_treasurer
 from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
@@ -24,6 +28,7 @@ from app.modules.fundraisers.schemas import (
     ChildFundraiserProgressRead,
     FundraiserCreate,
     FundraiserDetailRead,
+    FundraiserPaymentCreate,
     FundraiserPaymentRead,
     FundraiserProgressRead,
     FundraiserRead,
@@ -32,6 +37,8 @@ from app.modules.fundraisers.schemas import (
 from app.modules.users.models import User
 
 ZERO = Decimal("0.00")
+MAX_ACCOUNT_BALANCE = Decimal("9999999999.99")
+SCHOOL_TIMEZONE = ZoneInfo("Europe/Warsaw")
 
 
 def _fundraisers_query(user: User, *, treasurer_only: bool = False) -> Select[tuple[Fundraiser]]:
@@ -170,6 +177,85 @@ def list_payments(db: Session, user: User, fundraiser_id: UUID) -> list[Fundrais
         .order_by(FundraiserPayment.paid_at.desc(), FundraiserPayment.id.desc())
     )
     return [FundraiserPaymentRead.model_validate(payment) for payment in payments]
+
+
+def pay_for_child(
+    db: Session, user: User, fundraiser_id: UUID, data: FundraiserPaymentCreate
+) -> FundraiserPaymentRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, lock="update")
+    today = datetime.now(SCHOOL_TIMEZONE).date()
+    if (
+        fundraiser.is_blocked
+        or fundraiser.status != FundraiserStatus.ACTIVE
+        or not fundraiser.start_date <= today <= fundraiser.end_date
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser is not accepting payments",
+        )
+
+    # Child removal takes the same lock before checking payments and deleting obligations.
+    child_id = db.scalar(
+        active_children_query()
+        .with_only_columns(Child.id)
+        .where(Child.id == data.child_id)
+        .with_for_update(of=Child)
+    )
+    obligation = select(FundraiserObligation.id).where(
+        FundraiserObligation.fundraiser_id == fundraiser.id,
+        FundraiserObligation.child_id == data.child_id,
+    )
+    if child_id is None or db.scalar(obligation) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Participant not found")
+
+    paid = select(FundraiserPayment.id).where(
+        FundraiserPayment.fundraiser_id == fundraiser.id,
+        FundraiserPayment.child_id == child_id,
+        FundraiserPayment.refunded_at.is_(None),
+    )
+    if db.scalar(paid.limit(1)) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Child is already paid")
+
+    amount = fundraiser.required_amount_per_child
+    wallet = get_wallet(db, user, lock=True)
+    if wallet.balance < amount:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Not enough money in your wallet",
+        )
+
+    account = _lock_account(db, fundraiser.id)
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Fundraiser has no account"
+        )
+    if account.balance + amount > MAX_ACCOUNT_BALANCE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser account balance would exceed its limit",
+        )
+
+    transaction = move_money(
+        db,
+        amount=amount,
+        type_=TransactionType.FUNDRAISER_PAYMENT,
+        created_by=user,
+        from_account=wallet,
+        to_account=account,
+        description=f"Fundraiser payment – {fundraiser.name}",
+    )
+    payment = FundraiserPayment(
+        id=uuid4(),
+        fundraiser_id=fundraiser.id,
+        child_id=child_id,
+        payer_id=user.id,
+        transaction=transaction,
+    )
+    db.add(payment)
+    db.flush()
+    result = FundraiserPaymentRead.model_validate(payment)
+    db.commit()
+    return result
 
 
 def create_fundraiser(db: Session, user: User, data: FundraiserCreate) -> FundraiserRead:

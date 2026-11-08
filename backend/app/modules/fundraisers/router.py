@@ -10,6 +10,7 @@ from app.modules.fundraisers import service
 from app.modules.fundraisers.schemas import (
     FundraiserCreate,
     FundraiserDetailRead,
+    FundraiserPaymentCreate,
     FundraiserPaymentRead,
     FundraiserRead,
     FundraiserUpdate,
@@ -46,6 +47,13 @@ def list_payments(
     fundraiser_id: UUID, user: CurrentUser, db: DbSession
 ) -> list[FundraiserPaymentRead]:
     return service.list_payments(db, user, fundraiser_id)
+
+
+@router.post("/{fundraiser_id}/payments", status_code=status.HTTP_201_CREATED)
+def pay_for_child(
+    fundraiser_id: UUID, payload: FundraiserPaymentCreate, user: CurrentUser, db: DbSession
+) -> FundraiserPaymentRead:
+    return service.pay_for_child(db, user, fundraiser_id, payload)
 
 
 @router.patch("/{fundraiser_id}")

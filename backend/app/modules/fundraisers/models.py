@@ -8,6 +8,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     String,
     Text,
@@ -198,6 +199,16 @@ class FundraiserObligation(Base):
 
 class FundraiserPayment(Base):
     __tablename__ = "fundraiser_payments"
+
+    __table_args__ = (
+        Index(
+            "uq_fundraiser_payments_unrefunded_child",
+            "fundraiser_id",
+            "child_id",
+            unique=True,
+            postgresql_where=text("refunded_at IS NULL"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
