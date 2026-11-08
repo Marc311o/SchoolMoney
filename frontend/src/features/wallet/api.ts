@@ -40,6 +40,25 @@ export type TransferOutRequest = {
   description?: string
 }
 
+export type Transaction = {
+  id: string
+  from_account_id: string | null
+  to_account_id: string | null
+  type: string
+  amount: string
+  created_by: string
+  created_at: string
+  description: string | null
+}
+
+export type PaginatedTransactions = {
+  items: Transaction[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
 // ---------------------------------------------------------------------------
 // Query keys
 // ---------------------------------------------------------------------------
@@ -48,6 +67,9 @@ export const walletKeys = {
   all: ['wallet'] as const,
   wallet: () => [...walletKeys.all, 'me'] as const,
   bankAccounts: () => [...walletKeys.all, 'bank-accounts'] as const,
+  transactions: () => [...walletKeys.all, 'transactions'] as const,
+  transactionPage: (page: number, pageSize: number) =>
+    [...walletKeys.transactions(), page, pageSize] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -80,6 +102,10 @@ export function useTopUp() {
     mutationFn: (data) => api.post<Wallet>('/accounts/me/top-up', data),
     onSuccess: (wallet) => {
       queryClient.setQueryData(walletKeys.wallet(), wallet)
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
     },
   })
 }
@@ -96,6 +122,10 @@ export function useTransferOut() {
       api.post<Wallet>('/accounts/me/external-transfers', data),
     onSuccess: (wallet) => {
       queryClient.setQueryData(walletKeys.wallet(), wallet)
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
     },
   })
 }
@@ -120,6 +150,15 @@ export function useAddBankAccount() {
   })
 }
 
+export function useTransactions(page: number, pageSize = 20) {
+  return useQuery({
+    queryKey: walletKeys.transactionPage(page, pageSize),
+    queryFn: () =>
+      api.get<PaginatedTransactions>(
+        `/accounts/me/transactions?page=${page}&page_size=${pageSize}`,
+      ),
+  })
+}
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

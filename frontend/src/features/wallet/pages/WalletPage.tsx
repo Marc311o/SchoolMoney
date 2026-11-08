@@ -7,6 +7,7 @@ import { useWallet } from '@/features/wallet/api'
 import { BalanceCard } from '@/features/wallet/components/BalanceCard'
 import { TopUpCard } from '@/features/wallet/components/TopUpCard'
 import { TransferOutCard } from '@/features/wallet/components/TransferOutCard'
+import { TransactionHistory } from '@/features/wallet/components/TransactionHistory'
 
 export function WalletPage() {
   const { data: wallet, isError } = useWallet()
@@ -38,6 +39,8 @@ export function WalletPage() {
             <TopUpCard onDone={notify} />
             <TransferOutCard balance={wallet?.balance} onDone={notify} />
           </Box>
+
+          {wallet && <TransactionHistory walletId={wallet.id} />}
         </>
       )}
 
