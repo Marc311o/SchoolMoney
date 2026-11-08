@@ -34,6 +34,7 @@ import AppButton from '@/components/AppButton'
 import CreateFundraiserDialog from '@/features/fundraisers/components/CreateFundraiserDialog'
 import { useCreateFundraiser, useFundraisers } from '@/features/fundraisers/api'
 import { type FundraiserCreate } from '@/features/fundraisers/api'
+import { FundraiserCard } from '@/features/fundraisers/components/FundraiserCard'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
@@ -234,7 +235,6 @@ export function ClassPage() {
         />
       </PageSection>
 
-      // TODO: change layout !!!
       <PageSection title="Fundraisers" count={fundraisers.length}>
         {fundraisersPending ? (
           <CircularProgress />
@@ -248,42 +248,24 @@ export function ClassPage() {
             }
           />
         ) : (
-          <Stack spacing={2}>
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2.5,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, minmax(0, 1fr))',
+                lg: 'repeat(3, minmax(0, 1fr))',
+              },
+              alignItems: 'stretch',
+            }}
+          >
             {fundraisers.map((fundraiser) => (
-              <Box
-                key={fundraiser.id}
-                sx={{
-                  p: 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography sx={{ fontWeight: 700 }}>
-                  {fundraiser.name}
-                </Typography>
-
-                {fundraiser.description && (
-                  <Typography color="text.secondary" variant="body2">
-                    {fundraiser.description}
-                  </Typography>
-                )}
-
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {fundraiser.required_amount_per_child} per child
-                </Typography>
-
-                <Typography variant="body2" color="text.secondary">
-                  {fundraiser.start_date} – {fundraiser.end_date}
-                </Typography>
-
-                <StatusBadge>{fundraiser.status}</StatusBadge>
-              </Box>
+              <FundraiserCard key={fundraiser.id} fundraiser={fundraiser} />
             ))}
-          </Stack>
+          </Box>
         )}
       </PageSection>
-      // TODO: end
 
       {!isTreasurer && (
         <LeaveClassSection
