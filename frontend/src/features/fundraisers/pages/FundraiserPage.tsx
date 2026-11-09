@@ -125,7 +125,8 @@ export default function FundraiserPage() {
   const isBlocked = fundraiser.is_blocked
   const canEditFundraiser =
     isTreasurer && fundraiser.status === 'ACTIVE' && !isBlocked
-  const actionsEnabled = fundraiser.status === 'ACTIVE' && !fundraiser.is_blocked
+  const actionsEnabled =
+    fundraiser.status === 'ACTIVE' && !fundraiser.is_blocked
 
   return (
     <Stack spacing={3} sx={{ p: '1em' }}>

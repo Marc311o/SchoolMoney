@@ -50,7 +50,7 @@ export const router = createBrowserRouter([
           { path: '/chat/:chatId', element: <ChatPage /> },
           { path: '/reports', element: <ReportsPage /> },
           { path: '/settings', element: <SettingsPage /> },
-          { path: '/fundraisers/:fundraiserId', element: <FundraiserPage />, },
+          { path: '/fundraisers/:fundraiserId', element: <FundraiserPage /> },
         ],
       },
     ],
