@@ -19,6 +19,7 @@ interface FundraiserChildrenProps {
   members: ClassMemberWithParent[]
   childrenProgress: FundraiserChildProgress[]
   payments: FundraiserPayment[]
+  actionsEnabled: boolean
   onPay: (childId: string) => void
   onWithdraw: (paymentId: string) => void
 }
@@ -42,6 +43,7 @@ export default function FundraiserChildren({
   members,
   childrenProgress,
   payments,
+  actionsEnabled,
   onPay,
   onWithdraw,
 }: FundraiserChildrenProps) {
@@ -135,16 +137,18 @@ export default function FundraiserChildren({
                         <StatusBadge tone="success">Paid</StatusBadge>
                       </Box>
 
-                      <AppButtonOutlined
-                        label="Withdraw payment"
-                        onClick={() => payment && onWithdraw(payment.id)}
-                        disabled={!payment}
-                      />
+                      {actionsEnabled && (
+                        <AppButtonOutlined
+                          label="Withdraw payment"
+                          onClick={() => payment && onWithdraw(payment.id)}
+                          disabled={!payment}
+                        />
+                      )}
                     </>
                   ) : (
-                    <>
+                    actionsEnabled && (
                       <AppButton label="Pay" onClick={() => onPay(child.id)} />
-                    </>
+                    )
                   )}
                 </Stack>
               </Stack>

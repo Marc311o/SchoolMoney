@@ -124,6 +124,7 @@ export default function FundraiserPage() {
   const isBlocked = fundraiser.is_blocked
   const canEditFundraiser =
     isTreasurer && fundraiser.status === 'ACTIVE' && !isBlocked
+  const actionsEnabled = fundraiser.status === 'ACTIVE' && !fundraiser.is_blocked
 
   return (
     <Stack spacing={3} sx={{ p: '1em' }}>
@@ -198,6 +199,7 @@ export default function FundraiserPage() {
               members={myChildren}
               childrenProgress={fundraiser.children}
               payments={payments}
+              actionsEnabled={actionsEnabled}
               onPay={() => {
                 // TODO Open payment confirmation dialog
               }}
@@ -213,6 +215,7 @@ export default function FundraiserPage() {
               members={schoolClass?.children ?? []}
               childrenProgress={fundraiser.children}
               loading={paymentsPending || classPending}
+              actionsEnabled={actionsEnabled}
               onPay={() => {
                 // TODO Open payment confirmation dialog
               }}

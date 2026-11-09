@@ -33,6 +33,7 @@ interface FundraiserPaymentsProps {
   members: ClassMemberWithParent[]
   childrenProgress: FundraiserChildProgress[]
   loading: boolean
+  actionsEnabled: boolean
   onPay: (childId: string) => void
 }
 
@@ -63,6 +64,7 @@ export default function FundraiserPayments({
   members,
   childrenProgress,
   loading,
+  actionsEnabled,
   onPay,
 }: FundraiserPaymentsProps) {
   const [filter, setFilter] = useState<PaymentFilter>('all')
@@ -222,11 +224,13 @@ export default function FundraiserPayments({
                         <Typography sx={{ fontWeight: 600 }}>
                           {formatMoney(payment.amount)}
                         </Typography>
-                      ) : (
+                      ) : actionsEnabled ? (
                         <AppButtonOutlined
                           label="Pay for"
                           onClick={() => onPay(child.id)}
                         />
+                      ) : (
+                        '—'
                       )}
                     </TableCell>
                   </TableRow>
