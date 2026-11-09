@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material'
-import { useNavigate } from 'react-router'
+import { Link as RouterLink } from 'react-router'
 
 import WhiteCard from '@/components/WhiteCard'
 import { type Fundraiser } from '@/features/fundraisers/api'
@@ -24,23 +24,20 @@ export function FundraiserCard({
   canEdit = false,
   onEdit,
 }: FundraiserCardProps) {
-    const navigate = useNavigate()
-
   const isActive = fundraiser.status === 'ACTIVE'
   const isBlocked = fundraiser.is_blocked === true
 
   return (
     <Box
-      onClick={() => navigate(`/fundraisers/${fundraiser.id}`)}
-      role="link"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          navigate(`/fundraisers/${fundraiser.id}`)
-        }
+      component={RouterLink}
+      to={`/fundraisers/${fundraiser.id}`}
+      sx={{
+        display: 'block',
+        cursor: 'pointer',
+        height: '100%',
+        color: 'inherit',
+        textDecoration: 'none',
       }}
-      sx={{ cursor: 'pointer', height: '100%' }}
     >
       <WhiteCard>
         <Box
