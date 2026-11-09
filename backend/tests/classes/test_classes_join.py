@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import MembershipStatus
 from app.modules.classrooms.models import ClassAccessCode, SchoolClass
+from app.modules.fundraisers.enums import FundraiserStatus
+from app.modules.fundraisers.models import Fundraiser, FundraiserObligation
 from app.modules.users.models import User
 from tests.conftest import AuthHeaders
 
@@ -235,3 +238,55 @@ def test_review_membership_reject(
     assert reject_res.status_code == 200
     assert reject_res.json()["status"] == MembershipStatus.REJECTED.value
     assert reject_res.json()["left_at"] is not None
+
+
+def test_approving_child_membership_creates_fundraiser_obligations(
+    client: TestClient, parent, auth_headers: AuthHeaders, db: Session
+):
+    parent_user = db.scalars(select(User).where(User.email == "parent@example.com")).one()
+
+    treasurer_headers = auth_headers("treasurer_oblig@example.com")
+    treasurer = db.scalars(select(User).where(User.email == "treasurer_oblig@example.com")).one()
+
+    school_class, code = _setup_class_with_code(db, treasurer)
+    child = _create_child(db, parent_user.id, first_name="Alex")
+
+    today = date.today()
+    fundraiser = Fundraiser(
+        id=uuid4(),
+        class_id=school_class.id,
+        author_id=treasurer.id,
+        name="Field Trip",
+        required_amount_per_child=Decimal("50.00"),
+        start_date=today,
+        end_date=today + timedelta(days=14),
+        status=FundraiserStatus.ACTIVE,
+    )
+    db.add(fundraiser)
+    db.commit()
+
+    join_res = client.post(
+        "/api/classes/join",
+        headers=parent,
+        json={"code": code.code, "child_id": str(child.id)},
+    )
+    assert join_res.status_code == 201
+    membership_id = join_res.json()["id"]
+
+    stmt = select(FundraiserObligation).where(
+        FundraiserObligation.fundraiser_id == fundraiser.id,
+        FundraiserObligation.child_id == child.id,
+    )
+    assert db.scalar(stmt) is None
+
+    approve_res = client.patch(
+        f"/api/classes/{school_class.id}/members/{membership_id}",
+        headers=treasurer_headers,
+        json={"status": "ACTIVE"},
+    )
+    assert approve_res.status_code == 200
+
+    obligation = db.scalar(stmt)
+    assert obligation is not None
+    assert obligation.child_id == child.id
+    assert obligation.fundraiser_id == fundraiser.id
