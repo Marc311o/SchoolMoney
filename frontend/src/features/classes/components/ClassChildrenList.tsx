@@ -50,7 +50,7 @@ export function ClassChildrenList({
   const compact = useMediaQuery(theme.breakpoints.down('md'))
 
   if (members.length === 0) {
-    return <EmptyState description={emptyText} />
+    return <EmptyState dashed description={emptyText} />
   }
 
   return (
