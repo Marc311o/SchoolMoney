@@ -44,7 +44,7 @@ export default function FundraiserProgress({
               mb: 1,
             }}
           >
-            <Typography sx={{fontWeight:600}}>
+            <Typography sx={{ fontWeight: 600 }}>
               {childrenPaidCount}/{progress.children_count} children paid
             </Typography>
             <Typography color="text.secondary">

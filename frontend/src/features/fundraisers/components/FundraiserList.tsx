@@ -17,7 +17,7 @@ export default function FundraiserList({
   filteredFundraisers,
   loading,
   isTreasurer,
-                                           onEdit
+  onEdit,
 }: FundraiserListProps) {
   if (loading) {
     return <CircularProgress />
