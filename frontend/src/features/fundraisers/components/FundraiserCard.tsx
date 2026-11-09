@@ -16,6 +16,7 @@ function formatDate(value: string) {
 
 export function FundraiserCard({ fundraiser }: FundraiserCardProps) {
   const isActive = fundraiser.status === 'ACTIVE'
+  const isBlocked = fundraiser.is_blocked === true
 
   return (
     <WhiteCard>
@@ -55,6 +56,7 @@ export function FundraiserCard({ fundraiser }: FundraiserCardProps) {
             }}
           >
             {fundraiser.status}
+            {isBlocked && ' (BLOCKED)'}
           </Typography>
         </Box>
 
