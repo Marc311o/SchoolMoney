@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import {
   Box,
   Breadcrumbs,
@@ -9,6 +11,9 @@ import {
 
 import { Link as RouterLink, useParams } from 'react-router'
 
+import AppButtonOutlined from '@/components/AppButtonOutlined'
+import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
+import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
 
@@ -18,13 +23,15 @@ import { useClass } from '@/features/classes/api'
 import {
   useFundraiser,
   useFundraiserPayments,
+  useUpdateFundraiser,
+  type FundraiserUpdate,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
 import FundraiserAccountCard from '@/features/fundraisers/components/FundraiserAccountCard'
 import FundraiserChildren from '@/features/fundraisers/components/FundraiserChildren'
 import FundraiserPayments from '@/features/fundraisers/components/FundraiserPayments'
-import AppAvatar from '@/components/AppAvatar'
+import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
@@ -39,6 +46,39 @@ export default function FundraiserPage() {
 
   const { data: payments = [], isPending: paymentsPending } =
     useFundraiserPayments(fundraiserId)
+
+  const [editing, setEditing] = useState(false)
+
+  const [toast, setToast] = useState<{
+    message: string
+    severity: SnackbarSeverity
+    id: number
+  } | null>(null)
+
+  const updateFundraiser = useUpdateFundraiser()
+
+  const notify = (message: string, severity: SnackbarSeverity = 'success') =>
+    setToast({ message, severity, id: Date.now() })
+
+  const handleUpdateFundraiser = (payload: FundraiserUpdate) => {
+    if (!fundraiser) return
+
+    updateFundraiser.mutate(
+      {
+        fundraiserId: fundraiser.id,
+        payload,
+      },
+      {
+        onSuccess: () => {
+          notify('Fundraiser updated successfully')
+          setEditing(false)
+        },
+        onError: () => {
+          notify('Could not update fundraiser', 'error')
+        },
+      },
+    )
+  }
 
   if (isPending) {
     return <CircularProgress sx={{ m: 4 }} />
@@ -67,7 +107,10 @@ export default function FundraiserPage() {
   // Only current user's active children
   const myChildren = allChildren.filter((member) => member.parent.id === me?.id)
 
+  const isTreasurer = schoolClass?.my_role === 'TREASURER'
   const isBlocked = fundraiser.is_blocked
+  const canEditFundraiser =
+    isTreasurer && fundraiser.status === 'ACTIVE' && !isBlocked
 
   return (
     <Stack spacing={3} sx={{ p: '1em' }}>
@@ -89,56 +132,36 @@ export default function FundraiserPage() {
         </Typography>
       </Breadcrumbs>
 
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-        {/* Column 1 – Avatar */}
-        <AppAvatar
-          name={fundraiser.name}
-          src={fundraiser.logo_url}
-          size={80}
-          square={true}
-        />
-
-        {/* Column 2 – Fundraiser information */}
-        <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-          {/* Row 1 – Name and status */}
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <Typography variant="h1" sx={{ overflowWrap: 'anywhere' }}>
-              {fundraiser.name}
-            </Typography>
-
-            <Box sx={{ alignSelf: 'flex-start', pt: 0.5 }}>
-              <StatusBadge>
-                {isBlocked ? 'Blocked' : fundraiser.status}
-              </StatusBadge>
-            </Box>
-          </Stack>
-
-          {/* Row 2 – Class, school and dates */}
-          <Typography variant="body2" color="text.secondary">
-            {[
-              schoolClass?.name,
-              schoolClass?.school_name,
-              `${fundraiser.start_date} – ${fundraiser.end_date}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+      <PageHeader
+        title={fundraiser.name}
+        badge={
+          <StatusBadge>{isBlocked ? 'Blocked' : fundraiser.status}</StatusBadge>
+        }
+        subtitle={[
+          schoolClass?.name,
+          schoolClass?.school_name,
+          `${fundraiser.start_date} – ${fundraiser.end_date}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        actions={
+          canEditFundraiser && (
+            <AppButtonOutlined
+              label="Edit fundraiser"
+              onClick={() => {
+                updateFundraiser.reset()
+                setEditing(true)
+              }}
+            />
+          )
+        }
+      >
+        {fundraiser.description && (
+          <Typography color="text.secondary">
+            {fundraiser.description}
           </Typography>
-
-          {/* Row 3 – Description */}
-          {fundraiser.description && (
-            <Typography color="text.secondary">
-              {fundraiser.description}
-            </Typography>
-          )}
-        </Stack>
-      </Stack>
+        )}
+      </PageHeader>
 
       <PageSection title="Progress">
         <FundraiserProgress progress={fundraiser.progress} />
@@ -194,6 +217,27 @@ export default function FundraiserPage() {
           </PageSection>
         </Box>
       </Box>
+
+      {editing && (
+        <EditFundraiserDialog
+          key={fundraiser.id}
+          open
+          fundraiser={fundraiser}
+          onClose={() => setEditing(false)}
+          onConfirm={handleUpdateFundraiser}
+          loading={updateFundraiser.isPending}
+          error={updateFundraiser.error}
+        />
+      )}
+
+      <AppSnackbar
+        key={toast?.id}
+        open={toast !== null}
+        message={toast?.message ?? ''}
+        severity={toast?.severity}
+        variant="standard"
+        onClose={() => setToast(null)}
+      />
     </Stack>
   )
 }
