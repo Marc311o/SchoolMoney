@@ -39,6 +39,12 @@ interface FundraiserPaymentsProps {
 
 type PaymentFilter = 'all' | 'paid' | 'unpaid'
 
+type PaymentRow = {
+  id: string
+  child: ClassMemberWithParent['child']
+  payment: FundraiserPayment | null
+}
+
 function formatMoney(value: string | number) {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -82,7 +88,7 @@ export default function FundraiserPayments({
     )
   }
 
-  const rows = childrenProgress.flatMap((progress) => {
+  const rows = childrenProgress.flatMap<PaymentRow>((progress) => {
     const member = members.find((item) => item.child.id === progress.child_id)
 
     if (!member) return []
