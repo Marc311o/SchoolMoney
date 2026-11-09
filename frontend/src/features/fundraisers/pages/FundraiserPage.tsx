@@ -32,6 +32,7 @@ import FundraiserAccountCard from '@/features/fundraisers/components/FundraiserA
 import FundraiserChildren from '@/features/fundraisers/components/FundraiserChildren'
 import FundraiserPayments from '@/features/fundraisers/components/FundraiserPayments'
 import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
+import AppAvatar from '@/components/AppAvatar.tsx'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
@@ -146,36 +147,49 @@ export default function FundraiserPage() {
         </Typography>
       </Breadcrumbs>
 
-      <PageHeader
-        title={fundraiser.name}
-        badge={
-          <StatusBadge>{isBlocked ? 'Blocked' : fundraiser.status}</StatusBadge>
-        }
-        subtitle={[
-          schoolClass?.name,
-          schoolClass?.school_name,
-          `${formatDate(fundraiser.start_date)} – ${formatDate(fundraiser.end_date)}`,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
-        actions={
-          canEditFundraiser && (
-            <AppButtonOutlined
-              label="Edit fundraiser"
-              onClick={() => {
-                updateFundraiser.reset()
-                setEditing(true)
-              }}
-            />
-          )
-        }
-      >
-        {fundraiser.description && (
-          <Typography color="text.secondary">
-            {fundraiser.description}
-          </Typography>
-        )}
-      </PageHeader>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+        <AppAvatar
+          name={fundraiser.name}
+          src={fundraiser.logo_url}
+          size={64}
+          square
+        />
+
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <PageHeader
+            title={fundraiser.name}
+            badge={
+              <StatusBadge>
+                {isBlocked ? 'Blocked' : fundraiser.status}
+              </StatusBadge>
+            }
+            subtitle={[
+              schoolClass?.name,
+              schoolClass?.school_name,
+              `${formatDate(fundraiser.start_date)} – ${formatDate(fundraiser.end_date)}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            actions={
+              canEditFundraiser && (
+                <AppButtonOutlined
+                  label="Edit fundraiser"
+                  onClick={() => {
+                    updateFundraiser.reset()
+                    setEditing(true)
+                  }}
+                />
+              )
+            }
+          >
+            {fundraiser.description && (
+              <Typography color="text.secondary">
+                {fundraiser.description}
+              </Typography>
+            )}
+          </PageHeader>
+        </Box>
+      </Stack>
 
       <PageSection title="Progress">
         <FundraiserProgress progress={fundraiser.progress} />
