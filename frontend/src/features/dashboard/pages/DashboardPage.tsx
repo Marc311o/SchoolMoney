@@ -1,219 +1,128 @@
-import { useHealth } from '@/features/system/api'
-import { Box, Button, Chip, Typography } from '@mui/material'
-import TextInput from '@/components/TextInput.tsx'
-import { useState } from 'react'
-import LockRoundedIcon from '@mui/icons-material/LockRounded'
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
-import UserStatusChip from '@/components/UserStatusChip.tsx'
-import AppButton from '@/components/AppButton.tsx'
-import AppButtonOutlined from '@/components/AppButtonOutlined.tsx'
-import WhiteCard from '@/components/WhiteCard.tsx'
-import PrimaryCard from '@/components/PrimaryCard.tsx'
-import AppListItem from '@/components/AppListItem.tsx'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
+import { Box, CircularProgress, Stack } from '@mui/material'
+import { useQueries } from '@tanstack/react-query'
+
+import EmptyState from '@/components/EmptyState'
+import PageHeader from '@/components/PageHeader'
+import PageSection from '@/components/PageSection'
+
+import { useCurrentUser } from '@/features/auth/api'
+import { useDashboardFundraisers } from '@/features/dashboard/api'
+import DashboardFundraiserCard from '@/features/dashboard/components/DashboardFundraiserCard'
+
+import type { ClassDetail } from '@/features/classes/api'
+import type { FundraiserDetail } from '@/features/fundraisers/api'
+
+import { api } from '@/lib/api'
 
 export function DashboardPage() {
-  const health = useHealth()
+  const { data: me } = useCurrentUser()
 
-  // for text fields
-  const [password, setPassword] = useState('')
-  const [username, setUsername] = useState('')
+  const {
+    data: fundraisers = [],
+    isPending,
+    isError,
+  } = useDashboardFundraisers()
+
+  const activeFundraisers = fundraisers.filter(
+    (fundraiser) => fundraiser.status === 'ACTIVE' && !fundraiser.is_blocked,
+  )
+
+  const fundraiserDetails = useQueries({
+    queries: activeFundraisers.map((fundraiser) => ({
+      queryKey: ['fundraisers', 'detail', fundraiser.id],
+      queryFn: () => api.get<FundraiserDetail>(`/fundraisers/${fundraiser.id}`),
+    })),
+  })
+
+  const classes = useQueries({
+    queries: activeFundraisers.map((fundraiser) => ({
+      queryKey: ['classes', 'detail', fundraiser.class_id],
+      queryFn: () => api.get<ClassDetail>(`/classes/${fundraiser.class_id}`),
+    })),
+  })
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          p: 3,
-          bgcolor: 'background.default',
-        }}
+    <Stack spacing={3} sx={{ p: '1em', px: { xs: 2, md: 4 } }}>
+      <PageHeader title="Dashboard" subtitle="Description here." />
+
+      <PageSection
+        title="My active fundraisers"
+        count={activeFundraisers.length}
       >
-        <section>
-          <h1>Dashboard</h1>
-          {health.isPending && <p>Checking API…</p>}
-          {health.isError && <p>API unreachable: {health.error.message}</p>}
-          {health.isSuccess && <p>API status: {health.data.status}</p>}
-
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 2,
-              maxWidth: 320,
-              mb: 3,
-            }}
-          >
-            <UserStatusChip label="Treasurer" />
-            <UserStatusChip label="Administrator" />
+        {isPending ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
           </Box>
+        ) : isError ? (
+          <EmptyState description="Could not load your fundraisers." />
+        ) : activeFundraisers.length === 0 ? (
+          <EmptyState description="You don't have any active fundraisers." />
+        ) : (
+          <Stack spacing={2}>
+            {activeFundraisers.map((fundraiser, index) => {
+              const detail = fundraiserDetails[index]?.data
+              const schoolClass = classes[index]?.data
 
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              maxWidth: 320,
-              mb: 3,
-            }}
-          >
-            <AppButton label="Save changes" />
-            <AppButton label="Saving..." loading />
-            <AppButton label="Submit" type="submit" fullWidth />
+              const loading =
+                fundraiserDetails[index]?.isPending || classes[index]?.isPending
 
-            <AppButtonOutlined label="Save changes" />
-            <AppButtonOutlined label="Saving..." loading />
-            <AppButtonOutlined label="Submit" type="submit" fullWidth />
-          </Box>
+              const error =
+                fundraiserDetails[index]?.isError || classes[index]?.isError
 
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 2,
-              width: '100%',
-              alignItems: 'stretch',
-              mb: 3,
-            }}
-          >
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PrimaryCard>
-                <h2>Welcome!</h2>
-                <p>Your dashboard overview</p>
-                <AppButtonOutlined label="Get started" />
-              </PrimaryCard>
-            </Box>
+              const myChildren =
+                schoolClass?.children.filter(
+                  (member) =>
+                    member.status === 'ACTIVE' && member.parent.id === me?.id,
+                ) ?? []
 
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <WhiteCard>
-                <h2>User details</h2>
-                <TextInput
-                  value={username}
-                  onChange={setUsername}
-                  placeholder="Username"
-                />
-                <AppButton label="Cancel" />
-              </WhiteCard>
-            </Box>
-          </Box>
+              const myChildrenProgress =
+                detail?.children.filter((progress) =>
+                  myChildren.some(
+                    (member) => member.child_id === progress.child_id,
+                  ),
+                ) ?? []
 
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              maxWidth: 320,
-              mb: 3,
-            }}
-          >
-            <TextInput
-              name="username"
-              value={username}
-              onChange={setUsername}
-              placeholder="Username"
-              icon={<PersonRoundedIcon fontSize="small" />}
-              error={!username.trim()}
-              errorText={!username.trim() ? 'Username is required' : undefined}
-            />
+              const allPaid =
+                myChildren.length > 0 &&
+                myChildrenProgress.length === myChildren.length &&
+                myChildrenProgress.every((child) => child.is_paid)
 
-            <TextInput
-              name="password"
-              value={password}
-              onChange={setPassword}
-              placeholder="Password"
-              icon={<LockRoundedIcon fontSize="small" />}
-              password
-              error={password.length > 0 && password.length < 8}
-              errorText={
-                password.length > 0 && password.length < 8
-                  ? 'Password must be at least 8 characters'
-                  : undefined
+              if (loading) {
+                return (
+                  <Box
+                    key={fundraiser.id}
+                    sx={{ display: 'flex', justifyContent: 'center', p: 3 }}
+                  >
+                    <CircularProgress size={24} />
+                  </Box>
+                )
               }
-            />
-          </Box>
 
-          <Button variant="contained">Theme test (button)</Button>
+              if (error) {
+                return (
+                  <EmptyState
+                    key={fundraiser.id}
+                    description={`Could not load information for ${fundraiser.name}.`}
+                  />
+                )
+              }
 
-          <Button
-            variant="contained"
-            sx={{
-              bgcolor: 'primary.light',
-              color: 'primary.contrastText',
-              '&:hover': {
-                bgcolor: 'primary.main',
-              },
-            }}
-          >
-            Theme test (button light)
-          </Button>
-
-          <Chip
-            label="Theme test (chip success)"
-            color="success"
-            variant="outlined"
-          />
-          <Chip
-            label="Theme test (chip error)"
-            color="error"
-            variant="outlined"
-          />
-
-          {/* APP LIST ITEMS */}
-          <Box sx={{ width: '50%' }}>
-            <WhiteCard>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                }}
-              >
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  AppListItems
-                </Typography>
-
-                <AppListItem
-                  title="Anna Kowalska"
-                  subtitle="Klasa 3A · Saldo: 125,00 zł"
-                  initial="Anna"
-                  avatarColor="primary.main"
-                  actions={[
-                    {
-                      label: 'Edytuj',
-                      icon: <EditRoundedIcon />,
-                      onClick: () => {},
-                      color: 'primary',
-                    },
-                    {
-                      label: 'Usuń',
-                      icon: <DeleteOutlineRoundedIcon />,
-                      onClick: () => {},
-                      color: 'error',
-                    },
-                  ]}
+              return (
+                <DashboardFundraiserCard
+                  key={fundraiser.id}
+                  id={fundraiser.id}
+                  name={fundraiser.name}
+                  endDate={fundraiser.end_date}
+                  requiredAmount={fundraiser.required_amount_per_child}
+                  childrenCount={myChildren.length}
+                  allPaid={allPaid}
+                  className={schoolClass?.name ?? 'Class'}
                 />
-
-                <AppListItem
-                  title="Teatr - zbiórka"
-                  subtitle="Klasa 3B"
-                  actions={[
-                    {
-                      label: 'Blokuj',
-                      icon: <BlockRoundedIcon />,
-                      onClick: () => {},
-                      color: 'error',
-                    },
-                  ]}
-                />
-
-                <AppListItem title="Kawiarnia" subtitle="Klasa 3F" />
-              </Box>
-            </WhiteCard>
-          </Box>
-        </section>
-      </Box>
-    </Box>
+              )
+            })}
+          </Stack>
+        )}
+      </PageSection>
+    </Stack>
   )
 }
