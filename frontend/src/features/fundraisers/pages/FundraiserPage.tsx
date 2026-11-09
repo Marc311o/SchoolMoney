@@ -55,6 +55,19 @@ export default function FundraiserPage() {
     id: number
   } | null>(null)
 
+  function formatDate(value: string) {
+    if (!value) return '—'
+
+    const date = new Date(`${value}T00:00:00`)
+
+    if (Number.isNaN(date.getTime())) return '—'
+
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+    })
+  }
+
   const updateFundraiser = useUpdateFundraiser()
 
   const notify = (message: string, severity: SnackbarSeverity = 'success') =>
@@ -140,7 +153,7 @@ export default function FundraiserPage() {
         subtitle={[
           schoolClass?.name,
           schoolClass?.school_name,
-          `${fundraiser.start_date} – ${fundraiser.end_date}`,
+          `${formatDate(fundraiser.start_date)} – ${formatDate(fundraiser.end_date)}`,
         ]
           .filter(Boolean)
           .join(' · ')}
