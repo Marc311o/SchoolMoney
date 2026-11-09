@@ -4,12 +4,11 @@ import { Link as RouterLink } from 'react-router'
 import WhiteCard from '@/components/WhiteCard'
 import { type Fundraiser } from '@/features/fundraisers/api'
 import { IconButton } from '@mui/material'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 
 interface FundraiserCardProps {
   fundraiser: Fundraiser
   canEdit?: boolean
-  onEdit?: () => void
 }
 
 function formatDate(value: string) {
@@ -22,7 +21,6 @@ function formatDate(value: string) {
 export function FundraiserCard({
   fundraiser,
   canEdit = false,
-  onEdit,
 }: FundraiserCardProps) {
   const isActive = fundraiser.status === 'ACTIVE'
   const isBlocked = fundraiser.is_blocked === true
@@ -97,13 +95,11 @@ export function FundraiserCard({
             {canEdit && (
               <IconButton
                 size="small"
-                aria-label="Edit fundraiser"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onEdit?.()
-                }}
+                aria-label="Treasurer"
+                disableRipple
+                sx={{ cursor: 'default' }}
               >
-                <EditOutlinedIcon fontSize="small" />
+                <AccountBalanceWalletOutlinedIcon fontSize="small" />
               </IconButton>
             )}
           </Box>

@@ -32,7 +32,6 @@ interface EditFundraiserDialogProps {
 type FundraiserErrors = {
   name?: string
   description?: string
-  logo_url?: string
   required_amount_per_child?: string
   start_date?: string
   end_date?: string
@@ -83,7 +82,6 @@ export default function EditFundraiserDialog({
 }: EditFundraiserDialogProps) {
   const [name, setName] = useState(fundraiser.name)
   const [description, setDescription] = useState(fundraiser.description ?? '')
-  const [logoUrl, setLogoUrl] = useState(fundraiser.logo_url ?? '')
   const [amount, setAmount] = useState(fundraiser.required_amount_per_child)
   const [startDate, setStartDate] = useState(fundraiser.start_date)
   const [endDate, setEndDate] = useState(fundraiser.end_date)
@@ -134,7 +132,6 @@ export default function EditFundraiserDialog({
     onConfirm({
       name: name.trim(),
       description: description.trim() || null,
-      logo_url: logoUrl.trim() || null,
       required_amount_per_child: amountNumber.toFixed(2),
       start_date: startDate,
       end_date: endDate,
@@ -164,13 +161,6 @@ export default function EditFundraiserDialog({
             label="Description (optional)"
             value={description}
             onChange={setDescription}
-            disabled={loading}
-          />
-
-          <TextInput
-            label="Logo URL (optional)"
-            value={logoUrl}
-            onChange={setLogoUrl}
             disabled={loading}
           />
 

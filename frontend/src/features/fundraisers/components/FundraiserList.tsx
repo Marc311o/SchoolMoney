@@ -9,7 +9,6 @@ interface FundraiserListProps {
   filteredFundraisers: Fundraiser[]
   loading: boolean
   isTreasurer: boolean
-  onEdit: (fundraiser: Fundraiser) => void
 }
 
 export default function FundraiserList({
@@ -17,7 +16,6 @@ export default function FundraiserList({
   filteredFundraisers,
   loading,
   isTreasurer,
-  onEdit,
 }: FundraiserListProps) {
   if (loading) {
     return <CircularProgress />
@@ -63,7 +61,6 @@ export default function FundraiserList({
               !fundraiser.is_blocked &&
               fundraiser.status !== 'CLOSED'
             }
-            onEdit={() => onEdit(fundraiser)}
           />
         ))}
       </Box>

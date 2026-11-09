@@ -289,10 +289,6 @@ export function ClassPage() {
           filteredFundraisers={filteredFundraisers}
           loading={fundraisersPending}
           isTreasurer={isTreasurer}
-          onEdit={(fundraiser) => {
-            updateFundraiser.reset()
-            setEditingFundraiser(fundraiser)
-          }}
         />
       </PageSection>
 
