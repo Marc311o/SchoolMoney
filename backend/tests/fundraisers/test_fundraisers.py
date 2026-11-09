@@ -103,8 +103,9 @@ def test_treasurer_crud_creates_account_and_snapshots_participants(client, db, s
     assert {row["child_id"] for row in detail["children"]} == {
         school.own_child_id,
         school.other_child_id,
+        school.pending_child_id,
     }
-    assert detail["progress"]["required_total"] == "100.50"
+    assert detail["progress"]["required_total"] == "150.75"
 
     edit = client.patch(url, headers=treasurer, json={"name": "Museum", "description": "Bus trip"})
     assert edit.status_code == 200, edit.text

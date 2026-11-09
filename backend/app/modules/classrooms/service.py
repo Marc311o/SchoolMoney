@@ -30,6 +30,8 @@ from app.modules.classrooms.schemas import (
     SchoolClassCreate,
     SchoolClassRead,
 )
+from app.modules.fundraisers.enums import FundraiserStatus
+from app.modules.fundraisers.models import Fundraiser, FundraiserObligation
 from app.modules.users.enums import UserStatus
 from app.modules.users.models import User
 from app.modules.users.schemas import UserSummaryRead
@@ -381,6 +383,34 @@ def review_membership(
     if payload.status == MembershipStatus.ACTIVE:
         membership.joined_at = now
         membership.left_at = None
+
+        active_fundraisers = db.scalars(
+            select(Fundraiser).where(
+                Fundraiser.class_id == class_id,
+                Fundraiser.status.in_([FundraiserStatus.ACTIVE, FundraiserStatus.DRAFT]),
+                Fundraiser.is_blocked.is_(False),
+            )
+        ).all()
+
+        if active_fundraisers:
+            existing_obligation_fundraiser_ids = set(
+                db.scalars(
+                    select(FundraiserObligation.fundraiser_id).where(
+                        FundraiserObligation.child_id == membership.child_id,
+                        FundraiserObligation.fundraiser_id.in_([f.id for f in active_fundraisers]),
+                    )
+                ).all()
+            )
+
+            for fundraiser in active_fundraisers:
+                if fundraiser.id not in existing_obligation_fundraiser_ids:
+                    db.add(
+                        FundraiserObligation(
+                            id=uuid4(),
+                            fundraiser_id=fundraiser.id,
+                            child_id=membership.child_id,
+                        )
+                    )
     elif payload.status == MembershipStatus.REJECTED:
         membership.left_at = now
 
