@@ -2,9 +2,13 @@ import { Box, Typography } from '@mui/material'
 
 import WhiteCard from '@/components/WhiteCard'
 import { type Fundraiser } from '@/features/fundraisers/api'
+import { IconButton } from '@mui/material'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 
 interface FundraiserCardProps {
   fundraiser: Fundraiser
+  canEdit?: boolean
+  onEdit?: () => void
 }
 
 function formatDate(value: string) {
@@ -14,7 +18,11 @@ function formatDate(value: string) {
   })
 }
 
-export function FundraiserCard({ fundraiser }: FundraiserCardProps) {
+export function FundraiserCard({
+  fundraiser,
+  canEdit = false,
+  onEdit,
+}: FundraiserCardProps) {
   const isActive = fundraiser.status === 'ACTIVE'
   const isBlocked = fundraiser.is_blocked === true
 
@@ -47,22 +55,43 @@ export function FundraiserCard({ fundraiser }: FundraiserCardProps) {
             {fundraiser.name}
           </Typography>
 
-          <Typography
-            sx={{
-              color: 'primary.main',
-              fontWeight: 700,
-              fontSize: 13,
-              flexShrink: 0,
-            }}
-          >
-            {fundraiser.status}
-            {isBlocked && ' (BLOCKED)'}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography
+              sx={{
+                color: 'primary.main',
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              {fundraiser.status}
+              {isBlocked && ' (BLOCKED)'}
+            </Typography>
+          </Box>
         </Box>
 
-        <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-          {isActive ? 'Ends' : ''} {formatDate(fundraiser.end_date)}
-        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+          }}
+        >
+          <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
+            {isActive ? 'Ends' : ''} {formatDate(fundraiser.end_date)}
+          </Typography>
+
+          {canEdit && (
+            <IconButton
+              size="small"
+              aria-label="Edit fundraiser"
+              onClick={onEdit}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
       </Box>
     </WhiteCard>
   )

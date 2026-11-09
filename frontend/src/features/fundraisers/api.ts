@@ -14,6 +14,15 @@ export type FundraiserCreate = {
   end_date: string
 }
 
+export type FundraiserUpdate = {
+  name?: string
+  description?: string | null
+  logo_url?: string | null
+  required_amount_per_child?: string
+  start_date?: string
+  end_date?: string
+}
+
 export type Fundraiser = {
   id: string
   class_id: string
@@ -52,6 +61,25 @@ export function useCreateFundraiser() {
 
   return useMutation<Fundraiser, ApiError, FundraiserCreate>({
     mutationFn: (payload) => api.post<Fundraiser>('/fundraisers', payload),
+
+    onSuccess: (fundraiser) => {
+      queryClient.invalidateQueries({
+        queryKey: fundraiserKeys.list(fundraiser.class_id),
+      })
+    },
+  })
+}
+
+export function useUpdateFundraiser() {
+  const queryClient = useQueryClient()
+
+  return useMutation<
+    Fundraiser,
+    ApiError,
+    { fundraiserId: string; payload: FundraiserUpdate }
+  >({
+    mutationFn: ({ fundraiserId, payload }) =>
+      api.patch<Fundraiser>(`/fundraisers/${fundraiserId}`, payload),
 
     onSuccess: (fundraiser) => {
       queryClient.invalidateQueries({

@@ -31,10 +31,19 @@ import { fullName } from '@/lib/names'
 import { useState } from 'react'
 import AppButton from '@/components/AppButton'
 import CreateFundraiserDialog from '@/features/fundraisers/components/CreateFundraiserDialog'
-import { useCreateFundraiser, useFundraisers } from '@/features/fundraisers/api'
+import {
+  useCreateFundraiser,
+  useFundraisers,
+  useUpdateFundraiser,
+  type Fundraiser,
+  type FundraiserUpdate,
+} from '@/features/fundraisers/api'
 import { type FundraiserCreate } from '@/features/fundraisers/api'
 import FundraiserList from '@/features/fundraisers/components/FundraiserList'
-import FundraiserFilter, { type FundraiserFilterValue, } from '@/features/classes/components/FundraiserFilter'
+import FundraiserFilter, {
+  type FundraiserFilterValue,
+} from '@/features/classes/components/FundraiserFilter'
+import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
@@ -59,6 +68,10 @@ export function ClassPage() {
 
   const [fundraiserFilter, setFundraiserFilter] =
     useState<FundraiserFilterValue>('all')
+  const [editingFundraiser, setEditingFundraiser] = useState<Fundraiser | null>(
+    null,
+  )
+  const updateFundraiser = useUpdateFundraiser()
 
   const filteredFundraisers = fundraisers.filter((fundraiser) => {
     if (fundraiserFilter === 'all') return true
@@ -124,6 +137,26 @@ export function ClassPage() {
         notify('Could not create fundraiser', 'error')
       },
     })
+  }
+
+  const handleUpdateFundraiser = (payload: FundraiserUpdate) => {
+    if (!editingFundraiser) return
+
+    updateFundraiser.mutate(
+      {
+        fundraiserId: editingFundraiser.id,
+        payload,
+      },
+      {
+        onSuccess: () => {
+          notify('Fundraiser updated successfully')
+          setEditingFundraiser(null)
+        },
+        onError: () => {
+          notify('Could not update fundraiser', 'error')
+        },
+      },
+    )
   }
 
   if (isPending) {
@@ -256,6 +289,10 @@ export function ClassPage() {
           filteredFundraisers={filteredFundraisers}
           loading={fundraisersPending}
           isTreasurer={isTreasurer}
+          onEdit={(fundraiser) => {
+            updateFundraiser.reset()
+            setEditingFundraiser(fundraiser)
+          }}
         />
       </PageSection>
 
@@ -318,6 +355,17 @@ export function ClassPage() {
         loading={createFundraiser.isPending}
         error={createFundraiser.error}
       />
+      {editingFundraiser && (
+        <EditFundraiserDialog
+          key={editingFundraiser.id}
+          open
+          fundraiser={editingFundraiser}
+          onClose={() => setEditingFundraiser(null)}
+          onConfirm={handleUpdateFundraiser}
+          loading={updateFundraiser.isPending}
+          error={updateFundraiser.error}
+        />
+      )}
     </Stack>
   )
 }
