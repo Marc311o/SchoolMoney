@@ -40,6 +40,43 @@ export type Fundraiser = {
   iban: string | null
 }
 
+export type FundraiserChildProgress = {
+  child_id: string
+  required_amount_per_child: string
+  paid_amount: string
+  refunded_amount: string
+  remaining_amount: string
+  is_paid: boolean
+}
+
+export type FundraiserProgress = {
+  fundraiser_id: string
+  children_count: number
+  required_total: string
+  paid_total: string
+  refunded_total: string
+  treasurer_withdrawn_total: string
+  treasurer_deposited_total: string
+  current_balance: string
+}
+
+export type FundraiserDetail = Fundraiser & {
+  children: FundraiserChildProgress[]
+  progress: FundraiserProgress
+}
+
+export type FundraiserPayment = {
+  id: string
+  fundraiser_id: string
+  child_id: string
+  payer_id: string
+  transaction_id: string
+  amount: string
+  paid_at: string
+  refunded_at: string | null
+  refund_transaction_id: string | null
+}
+
 export const fundraiserKeys = {
   all: ['fundraisers'] as const,
   list: (classId: string) => [...fundraiserKeys.all, 'list', classId] as const,
@@ -86,5 +123,22 @@ export function useUpdateFundraiser() {
         queryKey: fundraiserKeys.list(fundraiser.class_id),
       })
     },
+  })
+}
+
+export function useFundraiser(fundraiserId: string) {
+  return useQuery<FundraiserDetail, ApiError>({
+    queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+    queryFn: () => api.get<FundraiserDetail>(`/fundraisers/${fundraiserId}`),
+    enabled: !!fundraiserId,
+  })
+}
+
+export function useFundraiserPayments(fundraiserId: string) {
+  return useQuery<FundraiserPayment[], ApiError>({
+    queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+    queryFn: () =>
+      api.get<FundraiserPayment[]>(`/fundraisers/${fundraiserId}/payments`),
+    enabled: !!fundraiserId,
   })
 }

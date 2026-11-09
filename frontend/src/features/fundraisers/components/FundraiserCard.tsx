@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material'
+import { useNavigate } from 'react-router'
 
 import WhiteCard from '@/components/WhiteCard'
 import { type Fundraiser } from '@/features/fundraisers/api'
@@ -23,76 +24,94 @@ export function FundraiserCard({
   canEdit = false,
   onEdit,
 }: FundraiserCardProps) {
+    const navigate = useNavigate()
+
   const isActive = fundraiser.status === 'ACTIVE'
   const isBlocked = fundraiser.is_blocked === true
 
   return (
-    <WhiteCard>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          height: '100%',
-        }}
-      >
+    <Box
+      onClick={() => navigate(`/fundraisers/${fundraiser.id}`)}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          navigate(`/fundraisers/${fundraiser.id}`)
+        }
+      }}
+      sx={{ cursor: 'pointer', height: '100%' }}
+    >
+      <WhiteCard>
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
             gap: 1,
+            height: '100%',
           }}
         >
-          <Typography
+          <Box
             sx={{
-              fontWeight: 700,
-              fontSize: 16,
-              overflowWrap: 'anywhere',
-              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
             }}
           >
-            {fundraiser.name}
-          </Typography>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Typography
               sx={{
-                color: 'primary.main',
                 fontWeight: 700,
-                fontSize: 13,
-                flexShrink: 0,
+                fontSize: 16,
+                overflowWrap: 'anywhere',
+                minWidth: 0,
               }}
             >
-              {fundraiser.status}
-              {isBlocked && ' (BLOCKED)'}
+              {fundraiser.name}
             </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  flexShrink: 0,
+                }}
+              >
+                {fundraiser.status}
+                {isBlocked && ' (BLOCKED)'}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+            }}
+          >
+            <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
+              {isActive ? 'Ends' : ''} {formatDate(fundraiser.end_date)}
+            </Typography>
+
+            {canEdit && (
+              <IconButton
+                size="small"
+                aria-label="Edit fundraiser"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onEdit?.()
+                }}
+              >
+                <EditOutlinedIcon fontSize="small" />
+              </IconButton>
+            )}
           </Box>
         </Box>
-
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1,
-          }}
-        >
-          <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-            {isActive ? 'Ends' : ''} {formatDate(fundraiser.end_date)}
-          </Typography>
-
-          {canEdit && (
-            <IconButton
-              size="small"
-              aria-label="Edit fundraiser"
-              onClick={onEdit}
-            >
-              <EditOutlinedIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-      </Box>
-    </WhiteCard>
+      </WhiteCard>
+    </Box>
   )
 }
