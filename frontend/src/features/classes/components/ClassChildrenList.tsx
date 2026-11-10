@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import {
   Box,
   Button,
@@ -12,6 +14,7 @@ import PersonRemoveOutlined from '@mui/icons-material/PersonRemoveOutlined'
 
 import AppAvatar from '@/components/AppAvatar'
 import WhiteCard from '@/components/WhiteCard'
+import AppButtonOutlined from '@/components/AppButtonOutlined'
 import type { ClassMemberWithParent } from '@/features/classes/api'
 import { formatDate } from '@/lib/dates'
 import { shortName, fullName } from '@/lib/names.ts'
@@ -45,13 +48,19 @@ export function ClassChildrenList({
   showRemove = false,
   onRemove,
 }: ClassChildrenListProps) {
+  const FUNDRAISER_CHILDREN_LIMIT = 5
   const theme = useTheme()
-
   const compact = useMediaQuery(theme.breakpoints.down('md'))
+
+  const [showAll, setShowAll] = useState(false)
 
   if (members.length === 0) {
     return <EmptyState dashed description={emptyText} />
   }
+
+  const visibleMembers = showAll
+    ? members
+    : members.slice(0, FUNDRAISER_CHILDREN_LIMIT)
 
   return (
     <WhiteCard padding={0}>
@@ -78,7 +87,7 @@ export function ClassChildrenList({
       </Stack>
 
       <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-        {members.map((member, index) => (
+        {visibleMembers.map((member, index) => (
           <ChildRow
             key={member.id}
             member={member}
@@ -90,6 +99,23 @@ export function ClassChildrenList({
           />
         ))}
       </Box>
+
+      {members.length > FUNDRAISER_CHILDREN_LIMIT && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            py: 2,
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <AppButtonOutlined
+            label={showAll ? 'Show less' : `Show all (${members.length})`}
+            onClick={() => setShowAll((prev) => !prev)}
+          />
+        </Box>
+      )}
     </WhiteCard>
   )
 }
