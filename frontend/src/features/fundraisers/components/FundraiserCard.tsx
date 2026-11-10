@@ -1,9 +1,9 @@
-import { Box, Typography } from '@mui/material'
+import { useState } from 'react'
+import { Box, IconButton, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router'
 
 import WhiteCard from '@/components/WhiteCard'
 import { type Fundraiser } from '@/features/fundraisers/api'
-import { IconButton } from '@mui/material'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 
 interface FundraiserCardProps {
@@ -18,12 +18,26 @@ function formatDate(value: string) {
   })
 }
 
+function isEndingSoon(endDate: string, now: number) {
+  const end = new Date(`${endDate}T23:59:59`).getTime()
+
+  if (Number.isNaN(end)) return false
+
+  const daysUntilEnd = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+
+  return daysUntilEnd >= 0 && daysUntilEnd <= 2
+}
+
 export function FundraiserCard({
   fundraiser,
   canEdit = false,
 }: FundraiserCardProps) {
+  const [now] = useState(() => Date.now())
+
   const isActive = fundraiser.status === 'ACTIVE'
   const isBlocked = fundraiser.is_blocked === true
+
+  const endingSoon = isActive && isEndingSoon(fundraiser.end_date, now)
 
   return (
     <Box
@@ -37,7 +51,12 @@ export function FundraiserCard({
         textDecoration: 'none',
       }}
     >
-      <WhiteCard>
+      <WhiteCard
+        sx={{
+          bgcolor: endingSoon ? 'warning.light' : 'background.paper',
+          borderColor: endingSoon ? 'warning.main' : 'divider',
+        }}
+      >
         <Box
           sx={{
             display: 'flex',
