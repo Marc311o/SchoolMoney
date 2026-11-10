@@ -238,7 +238,7 @@ export default function FundraiserPayments({
                     <TableCell
                       sx={{ display: { xs: 'none', md: 'table-cell' } }}
                     >
-                      {payment && !refunded ? formatDate(payment.paid_at) : '—'}
+                      {payment && !refunded ? formatDate(payment.paid_at) : ''}
                     </TableCell>
 
                     <TableCell align="right">
