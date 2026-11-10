@@ -20,6 +20,7 @@ from app.modules.accounts.models import (
 )
 from app.modules.accounts.utils import generate_fake_iban
 from app.modules.auth.security import hash_password
+from app.modules.chat.enums import ChatKind
 from app.modules.chat.models import Chat, ChatParticipant, Message
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import MembershipStatus
@@ -215,8 +216,14 @@ def pay_for_child(
     return payment
 
 
-def create_chat(db: Session, users: list[User], school_class: SchoolClass | None = None) -> Chat:
-    chat = Chat(id=uuid4(), class_id=school_class.id if school_class else None)
+def create_chat(
+    db: Session,
+    kind: ChatKind,
+    users: list[User],
+    school_class: SchoolClass | None = None,
+) -> Chat:
+    """CLASS chats get no participants: access comes from class membership."""
+    chat = Chat(id=uuid4(), kind=kind, class_id=school_class.id if school_class else None)
     db.add(chat)
     db.flush()
     for user in users:
@@ -349,8 +356,8 @@ def seed_class(
 
 
 def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[Fundraiser]:
-    """Per class, in this order: active (with a withdrawal and an invoice),
-    active (partly paid), closed (with refunds), draft."""
+    """Per class, in this order: active (with a withdrawal, a deposit and an invoice),
+    active (partly paid, one payment withdrawn by the parent), closed (with refunds), draft."""
     today = date.today()
     plans = [
         (FundraiserStatus.ACTIVE, today - timedelta(days=14), today + timedelta(days=14)),
@@ -442,6 +449,44 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
                     file_url="/uploads/invoices/sample-invoice.pdf",
                 )
             )
+            # ...and the change from the ticket office put back
+            change = Decimal("10.00")
+            transaction = move_money(
+                db,
+                amount=change,
+                type_=TransactionType.TREASURER_DEPOSIT,
+                created_by=treasurer,
+                from_account=wallet(db, treasurer),
+                to_account=fundraiser.account,
+                description=f"Deposit – {fundraiser.name}",
+            )
+            db.add(
+                TreasurerOperation(
+                    id=uuid4(),
+                    fundraiser_id=fundraiser.id,
+                    author_id=treasurer.id,
+                    transaction_id=transaction.id,
+                    direction=TreasurerOperationDirection.DEPOSIT,
+                    amount=change,
+                    description="Change from the ticket office",
+                )
+            )
+
+        if i == 1 and payments:
+            # A parent took their payment back (the child can be paid for again)
+            withdrawn = payments[0]
+            payer = db.get(User, withdrawn.payer_id)
+            refund = move_money(
+                db,
+                amount=withdrawn.transaction.amount,
+                type_=TransactionType.PAYMENT_REFUND,
+                created_by=payer,
+                from_account=fundraiser.account,
+                to_account=wallet(db, payer),
+                description=f"Refund – {fundraiser.name}",
+            )
+            withdrawn.refunded_at = now()
+            withdrawn.refund_transaction_id = refund.id
 
         if status == FundraiserStatus.CLOSED:
             # Nothing was spent, so every payer gets the full amount back
@@ -453,7 +498,7 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
                     created_by=treasurer,
                     from_account=fundraiser.account,
                     to_account=wallet(db, db.get(User, payment.payer_id)),
-                    description=f"Refund – {fundraiser.name}",
+                    description=f"Close refund – {fundraiser.name}",
                 )
                 payment.refunded_at = now()
                 payment.refund_transaction_id = refund.id
@@ -466,13 +511,13 @@ def seed_fundraisers(db: Session, data: ClassData, config: SeedConfig) -> list[F
 
 
 def seed_chats(db: Session, data: ClassData) -> None:
-    chat = create_chat(db, data.parents, data.school_class)
+    chat = create_chat(db, ChatKind.CLASS, [], data.school_class)
     first_fundraiser = FUNDRAISER_TEMPLATES[0][0].lower()
     post(db, chat, data.treasurer, f"Hi all, the {first_fundraiser} fundraiser is open.", 120)
     if len(data.parents) > 1:
         post(db, chat, data.parents[1], "Thanks, paid already!", 90)
     if len(data.parents) > 2:
-        direct = create_chat(db, data.parents[1:3])
+        direct = create_chat(db, ChatKind.DIRECT, data.parents[1:3])
         post(db, direct, data.parents[1], "Can you pick up the kids on Friday?", 30)
         post(db, direct, data.parents[2], "Sure, no problem.", 25)
 
@@ -576,7 +621,7 @@ def seed(db: Session, config: SeedConfig) -> list[tuple[str, str]]:
         ]
 
     # Admin <-> treasurer conversation
-    admin_chat = create_chat(db, [admin, classes[0].treasurer])
+    admin_chat = create_chat(db, ChatKind.ADMIN, [admin, classes[0].treasurer])
     post(db, admin_chat, admin, "Please add invoices to the theatre fundraiser.", 60)
 
     if classes[0].parents[1:]:
