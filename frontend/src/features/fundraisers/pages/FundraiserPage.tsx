@@ -186,7 +186,7 @@ export default function FundraiserPage() {
 
   const actionsEnabled = fundraiser.status === 'ACTIVE' && !isBlocked
 
-  const payingChild = myChildren.find(
+  const payingChild = allChildren.find(
     (member) => member.child.id === payingChildId,
   )
 
@@ -304,8 +304,9 @@ export default function FundraiserPage() {
               childrenProgress={fundraiser.children}
               loading={paymentsPending || classPending}
               actionsEnabled={actionsEnabled}
-              onPay={() => {
-                // TODO Open payment confirmation dialog
+              onPay={(childId) => {
+                createPayment.reset()
+                setPayingChildId(childId)
               }}
             />
           </PageSection>
@@ -340,7 +341,10 @@ export default function FundraiserPage() {
         <PayFundraiserDialog
           open
           childName={fullName(payingChild.child)}
-          amount={fundraiser.required_amount_per_child}
+          amount={
+            fundraiser.children.find((item) => item.child_id === payingChildId)
+              ?.remaining_amount ?? fundraiser.required_amount_per_child
+          }
           walletBalance={wallet?.balance ?? '0'}
           walletLoading={walletPending}
           loading={createPayment.isPending}
