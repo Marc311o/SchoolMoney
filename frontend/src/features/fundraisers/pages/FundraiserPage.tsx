@@ -209,7 +209,13 @@ export default function FundraiserPage() {
       >
         {/* Left column */}
         <Stack spacing={3} sx={{ minWidth: 0 }}>
-          <PageSection title="Your children">
+          <PageSection
+            title={
+              actionsEnabled
+                ? 'Your children'
+                : 'Your children who participated'
+            }
+          >
             <FundraiserChildren
               members={myChildren}
               childrenProgress={fundraiser.children}
