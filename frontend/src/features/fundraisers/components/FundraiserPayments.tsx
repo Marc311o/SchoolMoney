@@ -227,7 +227,14 @@ export default function FundraiserPayments({
 
                     <TableCell align="right">
                       {payment && !refunded ? (
-                        <Typography sx={{ fontWeight: 600 }}>
+                        <Typography
+                          sx={{
+                            fontWeight: 600,
+                            fontFamily: 'monospace',
+                            fontSize: 15,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
                           {formatMoney(payment.amount)}
                         </Typography>
                       ) : actionsEnabled ? (
