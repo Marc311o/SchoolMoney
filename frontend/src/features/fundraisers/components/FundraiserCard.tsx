@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Box, IconButton, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router'
 
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
+
 import WhiteCard from '@/components/WhiteCard'
 import { type Fundraiser } from '@/features/fundraisers/api'
-import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 
 interface FundraiserCardProps {
   fundraiser: Fundraiser
@@ -37,7 +38,22 @@ export function FundraiserCard({
   const isActive = fundraiser.status === 'ACTIVE'
   const isBlocked = fundraiser.is_blocked === true
 
-  const endingSoon = isActive && isEndingSoon(fundraiser.end_date, now)
+  const endingSoon =
+    isActive && !isBlocked && isEndingSoon(fundraiser.end_date, now)
+
+  const statusColor = isBlocked
+    ? 'primary.contrastText'
+    : isActive
+      ? 'success.main'
+      : 'text.secondary'
+
+  const statusBackground = isBlocked
+    ? 'error.light'
+    : isActive
+      ? 'success.light'
+      : 'action.hover'
+
+  const statusLabel = isBlocked ? 'BLOCKED' : fundraiser.status
 
   return (
     <Box
@@ -84,18 +100,21 @@ export function FundraiserCard({
               {fundraiser.name}
             </Typography>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography
-                sx={{
-                  color: 'primary.main',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  flexShrink: 0,
-                }}
-              >
-                {fundraiser.status}
-                {isBlocked && ' (BLOCKED)'}
-              </Typography>
+            <Box
+              sx={{
+                px: 1.25,
+                py: 0.5,
+                borderRadius: 5,
+                bgcolor: statusBackground,
+                color: statusColor,
+                fontWeight: 700,
+                fontSize: 11,
+                letterSpacing: 0.4,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {statusLabel}
             </Box>
           </Box>
 
