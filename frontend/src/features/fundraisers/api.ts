@@ -124,8 +124,12 @@ export function useUpdateFundraiser() {
       api.patch<Fundraiser>(`/fundraisers/${fundraiserId}`, payload),
 
     onSuccess: (fundraiser) => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: fundraiserKeys.list(fundraiser.class_id),
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'detail', fundraiser.id],
       })
     },
   })
