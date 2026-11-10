@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import Base, get_db
 from app.main import app
-from app.modules.users.enums import UserStatus
+from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 
 TEST_DB_NAME = f"{settings.POSTGRES_DB}_test"
@@ -133,3 +133,17 @@ def auth_headers(client: TestClient, db: Session) -> AuthHeaders:
 def parent(auth_headers: AuthHeaders) -> dict[str, str]:
     """Authorization header of a freshly registered parent."""
     return auth_headers("parent@example.com")
+
+
+# ---------------------------------------------------------------------------
+# Admin
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def admin(auth_headers: AuthHeaders, db: Session) -> dict[str, str]:
+    """Authorization header of an administrator."""
+    headers = auth_headers("admin@example.com")
+    db.scalars(select(User).where(User.email == "admin@example.com")).one().role = UserRole.ADMIN
+    db.commit()
+    return headers
