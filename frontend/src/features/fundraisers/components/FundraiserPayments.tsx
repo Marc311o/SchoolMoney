@@ -101,21 +101,18 @@ export default function FundraiserPayments({
         (a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime(),
       )
 
-    if (childPayments.length === 0) {
-      return [
-        {
-          id: progress.child_id,
-          child: member.child,
-          payment: null,
-        },
-      ]
-    }
+    // newest record
+    const activePayment = childPayments.find(
+      (payment) => payment.refunded_at === null,
+    )
 
-    return childPayments.map((payment) => ({
-      id: payment.id,
-      child: member.child,
-      payment,
-    }))
+    return [
+      {
+        id: progress.child_id,
+        child: member.child,
+        payment: activePayment ?? null,
+      },
+    ]
   })
 
   const sortedRows = [...rows].sort((a, b) => {
