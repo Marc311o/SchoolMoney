@@ -290,7 +290,7 @@ export function ClassPage() {
               options={[
                 { label: 'All', value: 'all' },
                 { label: 'Active', value: 'active' },
-                { label: 'Closed', value: 'closed' }
+                { label: 'Closed', value: 'closed' },
               ]}
               value={fundraiserFilter}
               onChange={setFundraiserFilter}
