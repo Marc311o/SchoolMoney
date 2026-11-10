@@ -191,14 +191,29 @@ def pay_for_child(
 ) -> FundraiserPaymentRead:
     fundraiser = _get_fundraiser(db, user, fundraiser_id, lock="update")
     today = datetime.now(SCHOOL_TIMEZONE).date()
-    if (
-        fundraiser.is_blocked
-        or fundraiser.status != FundraiserStatus.ACTIVE
-        or not fundraiser.start_date <= today <= fundraiser.end_date
-    ):
+
+    if fundraiser.is_blocked:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser is blocked",
+        )
+
+    if fundraiser.status != FundraiserStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Fundraiser is not accepting payments",
+        )
+
+    if today < fundraiser.start_date:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser has not started yet",
+        )
+
+    if fundraiser.end_date is not None and today > fundraiser.end_date:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fundraiser has already ended",
         )
 
     # Child removal takes the same lock before checking payments and deleting obligations.
