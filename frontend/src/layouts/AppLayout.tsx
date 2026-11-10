@@ -1,8 +1,12 @@
 import { Outlet, useLocation, useNavigate } from 'react-router'
-import Sidebar from '@/components/Sidebar'
 import { useLogout, useCurrentUser } from '@/features/auth/api.ts'
+import Sidebar, { type SidebarItem } from '@/components/Sidebar'
 
-export function AppLayout() {
+interface AppLayoutProps {
+  items: SidebarItem[]
+}
+
+export function AppLayout({ items }: AppLayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useLogout()
@@ -11,6 +15,7 @@ export function AppLayout() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {' '}
       <Sidebar
+        items={items}
         user={{
           firstName: user?.first_name ?? '',
           lastName: user?.last_name ?? '',
