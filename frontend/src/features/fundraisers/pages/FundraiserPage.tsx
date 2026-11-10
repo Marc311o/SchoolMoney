@@ -27,6 +27,7 @@ import {
   useFundraiserPayments,
   useUpdateFundraiser,
   useCreateFundraiserPayment,
+  useRefundFundraiserPayment,
   type FundraiserUpdate,
 } from '@/features/fundraisers/api'
 
@@ -36,6 +37,7 @@ import FundraiserChildren from '@/features/fundraisers/components/FundraiserChil
 import FundraiserPayments from '@/features/fundraisers/components/FundraiserPayments'
 import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
 import PayFundraiserDialog from '@/features/fundraisers/components/PayFundraiserDialog'
+import RefundFundraiserDialog from '@/features/fundraisers/components/RefundFundraiserDialog'
 
 import { fullName } from '@/lib/names'
 
@@ -67,6 +69,8 @@ export default function FundraiserPage() {
 
   const createPayment = useCreateFundraiserPayment(fundraiserId)
 
+  const refundPayment = useRefundFundraiserPayment(fundraiserId)
+
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -80,6 +84,10 @@ export default function FundraiserPage() {
     severity: SnackbarSeverity
     id: number
   } | null>(null)
+
+  const [withdrawingPaymentId, setWithdrawingPaymentId] = useState<
+    string | null
+  >(null)
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -145,6 +153,25 @@ export default function FundraiserPage() {
     )
   }
 
+  const handleWithdraw = () => {
+    if (!withdrawingPaymentId) return
+
+    refundPayment.mutate(
+      {
+        paymentId: withdrawingPaymentId,
+      },
+      {
+        onSuccess: () => {
+          notify('Payment refunded successfully')
+          setWithdrawingPaymentId(null)
+        },
+        onError: (refundError) => {
+          notify(refundError.message || 'Could not refund payment', 'error')
+        },
+      },
+    )
+  }
+
   // ---------------------------------------------------------------------------
   // Loading and error states
   // ---------------------------------------------------------------------------
@@ -188,6 +215,14 @@ export default function FundraiserPage() {
 
   const payingChild = allChildren.find(
     (member) => member.child.id === payingChildId,
+  )
+
+  const withdrawingPayment = payments.find(
+    (payment) => payment.id === withdrawingPaymentId,
+  )
+
+  const withdrawingChild = allChildren.find(
+    (member) => member.child.id === withdrawingPayment?.child_id,
   )
 
   // ---------------------------------------------------------------------------
@@ -291,8 +326,9 @@ export default function FundraiserPage() {
                 createPayment.reset()
                 setPayingChildId(childId)
               }}
-              onWithdraw={() => {
-                // TODO Open refund confirmation dialog
+              onWithdraw={(paymentId) => {
+                refundPayment.reset()
+                setWithdrawingPaymentId(paymentId)
               }}
             />
           </PageSection>
@@ -350,6 +386,18 @@ export default function FundraiserPage() {
           loading={createPayment.isPending}
           onClose={() => setPayingChildId(null)}
           onConfirm={handlePay}
+        />
+      )}
+
+      {/* Withdraw dialog */}
+      {withdrawingPayment && withdrawingChild && (
+        <RefundFundraiserDialog
+          open
+          childName={fullName(withdrawingChild.child)}
+          amount={withdrawingPayment.amount}
+          loading={refundPayment.isPending}
+          onClose={() => setWithdrawingPaymentId(null)}
+          onConfirm={handleWithdraw}
         />
       )}
 

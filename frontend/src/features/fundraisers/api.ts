@@ -181,3 +181,32 @@ export function useCreateFundraiserPayment(fundraiserId: string) {
     },
   })
 }
+
+export function useRefundFundraiserPayment(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<FundraiserPayment, ApiError, { paymentId: string }>({
+    mutationFn: ({ paymentId }) =>
+      api.post<FundraiserPayment>(
+        `/fundraisers/${fundraiserId}/payments/${paymentId}/refund`,
+      ),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.wallet(),
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
+    },
+  })
+}
