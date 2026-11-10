@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, ApiError } from '@/lib/api'
+import { walletKeys } from '@/features/wallet/api'
 
 export type FundraiserStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED'
 
@@ -77,6 +78,10 @@ export type FundraiserPayment = {
   refund_transaction_id: string | null
 }
 
+export type FundraiserPaymentCreate = {
+  child_id: string
+}
+
 export const fundraiserKeys = {
   all: ['fundraisers'] as const,
   list: (classId: string) => [...fundraiserKeys.all, 'list', classId] as const,
@@ -140,5 +145,35 @@ export function useFundraiserPayments(fundraiserId: string) {
     queryFn: () =>
       api.get<FundraiserPayment[]>(`/fundraisers/${fundraiserId}/payments`),
     enabled: !!fundraiserId,
+  })
+}
+
+export function useCreateFundraiserPayment(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<FundraiserPayment, ApiError, FundraiserPaymentCreate>({
+    mutationFn: (payload) =>
+      api.post<FundraiserPayment>(
+        `/fundraisers/${fundraiserId}/payments`,
+        payload,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+      })
+
+      queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+      })
+
+      queryClient.invalidateQueries({
+        queryKey: walletKeys.wallet(),
+      })
+
+      queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
+    },
   })
 }

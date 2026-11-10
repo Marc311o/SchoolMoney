@@ -16,14 +16,17 @@ import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
+import AppAvatar from '@/components/AppAvatar'
 
 import { useCurrentUser } from '@/features/auth/api'
 import { useClass } from '@/features/classes/api'
+import { useWallet } from '@/features/wallet/api'
 
 import {
   useFundraiser,
   useFundraiserPayments,
   useUpdateFundraiser,
+  useCreateFundraiserPayment,
   type FundraiserUpdate,
 } from '@/features/fundraisers/api'
 
@@ -32,14 +35,22 @@ import FundraiserAccountCard from '@/features/fundraisers/components/FundraiserA
 import FundraiserChildren from '@/features/fundraisers/components/FundraiserChildren'
 import FundraiserPayments from '@/features/fundraisers/components/FundraiserPayments'
 import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
-import AppAvatar from '@/components/AppAvatar.tsx'
+import PayFundraiserDialog from '@/features/fundraisers/components/PayFundraiserDialog'
+
+import { fullName } from '@/lib/names'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
 
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
   const { data: fundraiser, isPending, error } = useFundraiser(fundraiserId)
 
   const { data: me } = useCurrentUser()
+
+  const { data: wallet, isPending: walletPending } = useWallet()
 
   const { data: schoolClass, isPending: classPending } = useClass(
     fundraiser?.class_id ?? '',
@@ -48,13 +59,31 @@ export default function FundraiserPage() {
   const { data: payments = [], isPending: paymentsPending } =
     useFundraiserPayments(fundraiserId)
 
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+
+  const updateFundraiser = useUpdateFundraiser()
+
+  const createPayment = useCreateFundraiserPayment(fundraiserId)
+
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
   const [editing, setEditing] = useState(false)
+
+  const [payingChildId, setPayingChildId] = useState<string | null>(null)
 
   const [toast, setToast] = useState<{
     message: string
     severity: SnackbarSeverity
     id: number
   } | null>(null)
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
 
   function formatDate(value: string) {
     if (!value) return '—'
@@ -69,10 +98,13 @@ export default function FundraiserPage() {
     })
   }
 
-  const updateFundraiser = useUpdateFundraiser()
-
-  const notify = (message: string, severity: SnackbarSeverity = 'success') =>
+  const notify = (message: string, severity: SnackbarSeverity = 'success') => {
     setToast({ message, severity, id: Date.now() })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const handleUpdateFundraiser = (payload: FundraiserUpdate) => {
     if (!fundraiser) return
@@ -94,6 +126,29 @@ export default function FundraiserPage() {
     )
   }
 
+  const handlePay = () => {
+    if (!payingChildId) return
+
+    createPayment.mutate(
+      {
+        child_id: payingChildId,
+      },
+      {
+        onSuccess: () => {
+          notify('Payment completed successfully')
+          setPayingChildId(null)
+        },
+        onError: (error) => {
+          notify(error.message || 'Could not complete payment', 'error')
+        },
+      },
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // Loading and error states
+  // ---------------------------------------------------------------------------
+
   if (isPending) {
     return <CircularProgress sx={{ m: 4 }} />
   }
@@ -114,19 +169,30 @@ export default function FundraiserPage() {
     return <CircularProgress sx={{ m: 4 }} />
   }
 
-  // All active children in the class
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
+
   const allChildren =
     schoolClass?.children.filter((member) => member.status === 'ACTIVE') ?? []
 
-  // Only current user's active children
   const myChildren = allChildren.filter((member) => member.parent.id === me?.id)
 
   const isTreasurer = schoolClass?.my_role === 'TREASURER'
   const isBlocked = fundraiser.is_blocked
+
   const canEditFundraiser =
     isTreasurer && fundraiser.status === 'ACTIVE' && !isBlocked
-  const actionsEnabled =
-    fundraiser.status === 'ACTIVE' && !fundraiser.is_blocked
+
+  const actionsEnabled = fundraiser.status === 'ACTIVE' && !isBlocked
+
+  const payingChild = myChildren.find(
+    (member) => member.child.id === payingChildId,
+  )
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <Stack spacing={3} sx={{ p: '1em' }}>
@@ -221,8 +287,9 @@ export default function FundraiserPage() {
               childrenProgress={fundraiser.children}
               payments={payments}
               actionsEnabled={actionsEnabled}
-              onPay={() => {
-                // TODO Open payment confirmation dialog
+              onPay={(childId) => {
+                createPayment.reset()
+                setPayingChildId(childId)
               }}
               onWithdraw={() => {
                 // TODO Open refund confirmation dialog
@@ -255,6 +322,7 @@ export default function FundraiserPage() {
         </Box>
       </Box>
 
+      {/* Edit fundraiser dialog */}
       {editing && (
         <EditFundraiserDialog
           key={fundraiser.id}
@@ -267,6 +335,21 @@ export default function FundraiserPage() {
         />
       )}
 
+      {/* Payment dialog */}
+      {payingChild && (
+        <PayFundraiserDialog
+          open
+          childName={fullName(payingChild.child)}
+          amount={fundraiser.required_amount_per_child}
+          walletBalance={wallet?.balance ?? '0'}
+          walletLoading={walletPending}
+          loading={createPayment.isPending}
+          onClose={() => setPayingChildId(null)}
+          onConfirm={handlePay}
+        />
+      )}
+
+      {/* Snackbar */}
       <AppSnackbar
         key={toast?.id}
         open={toast !== null}
