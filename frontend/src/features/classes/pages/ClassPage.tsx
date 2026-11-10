@@ -75,7 +75,14 @@ export function ClassPage() {
   const updateFundraiser = useUpdateFundraiser()
 
   const filteredFundraisers = fundraisers.filter((fundraiser) => {
-    if (fundraiserFilter === 'all') return true
+    if (fundraiserFilter === 'all') {
+      return true
+    }
+
+    if (fundraiser.is_blocked) {
+      return false
+    }
+
     return fundraiser.status?.toLowerCase() === fundraiserFilter
   })
 
