@@ -40,9 +40,7 @@ import {
 } from '@/features/fundraisers/api'
 import { type FundraiserCreate } from '@/features/fundraisers/api'
 import FundraiserList from '@/features/fundraisers/components/FundraiserList'
-import FundraiserFilter, {
-  type FundraiserFilterValue,
-} from '@/features/classes/components/FundraiserFilter'
+import SelectChips from '@/components/SelectChips'
 import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
 
 export function ClassPage() {
@@ -66,8 +64,11 @@ export function ClassPage() {
   const { data: fundraisers = [], isPending: fundraisersPending } =
     useFundraisers(classId)
 
+  type FundraiserFilterValue = 'all' | 'active' | 'closed'
+
   const [fundraiserFilter, setFundraiserFilter] =
     useState<FundraiserFilterValue>('all')
+
   const [editingFundraiser, setEditingFundraiser] = useState<Fundraiser | null>(
     null,
   )
@@ -277,7 +278,13 @@ export function ClassPage() {
         count={filteredFundraisers.length}
         action={
           fundraisers.length > 0 && (
-            <FundraiserFilter
+            <SelectChips<FundraiserFilterValue>
+              label="Fundraiser filter"
+              options={[
+                { label: 'All', value: 'all' },
+                { label: 'Active', value: 'active' },
+                { label: 'Closed', value: 'closed' }
+              ]}
               value={fundraiserFilter}
               onChange={setFundraiserFilter}
             />
