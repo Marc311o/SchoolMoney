@@ -1,4 +1,4 @@
-"""list, search and block parents tests"""
+"""list, search and block parents"""
 
 from uuid import uuid4
 
@@ -88,9 +88,9 @@ def test_rows_show_children_and_classes(client: TestClient, admin, people):
 
     anna, marek = rows["anna@example.com"], rows["marek@example.com"]
     assert [c["name"] for c in anna["classes"]] == ["1A", "3B"]
-    assert anna["children_count"] == 1
+    assert [c["first_name"] for c in anna["children"]] == ["Ola"]
     assert marek["classes"] == []
-    assert marek["children_count"] == 1  # the removed child does not count
+    assert len(marek["children"]) == 1  # the removed child (Jan) is not listed
     assert rows["ewa@example.com"]["status"] == "BLOCKED"
     assert "password_hash" not in anna
 
@@ -157,7 +157,7 @@ def test_block_and_unblock(client: TestClient, db: Session, admin, people):
     response = client.patch(url, json={"status": "BLOCKED"}, headers=admin)
     assert response.status_code == 200
     assert response.json()["status"] == "BLOCKED"
-    assert response.json()["children_count"] == 1
+    assert len(response.json()["children"]) == 1
     assert client.get("/api/users/me", headers=marek).status_code == 403
 
     response = client.patch(url, json={"status": "ACTIVE"}, headers=admin)

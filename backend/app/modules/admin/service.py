@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.common.schemas import Page
 from app.modules.admin.schemas import AdminUserRead
 from app.modules.children.models import Child
+from app.modules.children.schemas import ChildSummaryRead
 from app.modules.classrooms.models import SchoolClass
 from app.modules.classrooms.schemas import SchoolClassRead
 from app.modules.users.enums import UserRole, UserStatus
@@ -23,15 +24,15 @@ def _paginate(db: Session, statement: Select, page: int, page_size: int) -> tupl
 
 
 def _user_rows(db: Session, users: list[User]) -> list[AdminUserRead]:
-    """Children counts and treasurer classes for a page of users, in two queries."""
+    """Children and treasurer classes for a page of users, in two queries."""
     ids = [user.id for user in users]
-    children = dict(
-        db.execute(
-            select(Child.parent_id, func.count())
-            .where(Child.parent_id.in_(ids), Child.deleted_at.is_(None))
-            .group_by(Child.parent_id)
-        ).all()
-    )
+    children: dict[UUID, list[ChildSummaryRead]] = defaultdict(list)
+    for child in db.scalars(
+        select(Child)
+        .where(Child.parent_id.in_(ids), Child.deleted_at.is_(None))
+        .order_by(Child.first_name, Child.last_name)
+    ):
+        children[child.parent_id].append(ChildSummaryRead.model_validate(child))
     classes: dict[UUID, list[SchoolClassRead]] = defaultdict(list)
     for school_class in db.scalars(
         select(SchoolClass).where(SchoolClass.treasurer_id.in_(ids)).order_by(SchoolClass.name)
@@ -41,7 +42,7 @@ def _user_rows(db: Session, users: list[User]) -> list[AdminUserRead]:
     return [
         AdminUserRead(
             **UserRead.model_validate(user).model_dump(),
-            children_count=children.get(user.id, 0),
+            children=children[user.id],
             classes=classes[user.id],
         )
         for user in users
