@@ -288,4 +288,12 @@ def test_payments_require_an_active_fundraiser_within_dates(
         json={"child_id": school.own_child_id},
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == "Fundraiser is not accepting payments"
+
+    expected_detail = {
+        "draft": "Fundraiser is not accepting payments",
+        "closed": "Fundraiser is not accepting payments",
+        "blocked": "Fundraiser is blocked",
+        "future": "Fundraiser has not started yet",
+        "expired": "Fundraiser has already ended",
+    }[state]
+    assert response.json()["detail"] == expected_detail
