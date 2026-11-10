@@ -138,8 +138,8 @@ export default function FundraiserPage() {
           notify('Payment completed successfully')
           setPayingChildId(null)
         },
-        onError: (error) => {
-          notify(error.message || 'Could not complete payment', 'error')
+        onError: (paymentError) => {
+          notify(paymentError.message || 'Could not complete payment', 'error')
         },
       },
     )
