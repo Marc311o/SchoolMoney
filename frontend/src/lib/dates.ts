@@ -23,7 +23,14 @@ export function formatDate(isoDateTime: string): string {
   return new Date(isoDateTime).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
-    // year: 'numeric',
+  })
+}
+
+export function formatFullDate(isoDateTime: string): string {
+  return new Date(isoDateTime).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   })
 }
 

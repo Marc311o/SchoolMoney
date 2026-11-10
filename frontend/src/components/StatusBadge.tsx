@@ -5,6 +5,7 @@ const TONES = {
   warning: { bgcolor: 'warning.light', color: 'warning.dark' },
   success: { bgcolor: 'primary.light', color: 'primary.dark' },
   neutral: { bgcolor: 'background.default', color: 'text.secondary' },
+  danger: { bgcolor: 'error.light', color: 'error.dark' },
 } as const
 
 interface StatusBadgeProps {
