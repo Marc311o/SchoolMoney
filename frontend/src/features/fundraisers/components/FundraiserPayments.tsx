@@ -20,6 +20,7 @@ import EmptyState from '@/components/EmptyState'
 import StatusBadge from '@/components/StatusBadge'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import SelectChips from '@/components/SelectChips'
+import { formatMoney } from '@/lib/money'
 
 import {
   type FundraiserPayment,
@@ -45,13 +46,6 @@ type PaymentRow = {
   id: string
   child: ClassMemberWithParent['child']
   payment: FundraiserPayment | null
-}
-
-function formatMoney(value: string | number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
 }
 
 function formatDate(value: string) {

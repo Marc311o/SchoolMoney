@@ -15,6 +15,7 @@ import {
 
 import AppButton from '@/components/AppButton'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
+import { formatMoney } from '@/lib/money'
 
 interface RefundFundraiserDialogProps {
   open: boolean
@@ -23,13 +24,6 @@ interface RefundFundraiserDialogProps {
   loading: boolean
   onClose: () => void
   onConfirm: () => void
-}
-
-function formatMoney(value: string | number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
 }
 
 export default function RefundFundraiserDialog({

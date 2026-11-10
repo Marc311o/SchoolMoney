@@ -11,6 +11,7 @@ import {
   type FundraiserChildProgress,
   type FundraiserPayment,
 } from '@/features/fundraisers/api'
+import { formatMoney } from '@/lib/money'
 
 import { type ClassMemberWithParent } from '@/features/classes/api'
 import StatusBadge from '@/components/StatusBadge.tsx'
@@ -22,13 +23,6 @@ interface FundraiserChildrenProps {
   actionsEnabled: boolean
   onPay: (childId: string) => void
   onWithdraw: (paymentId: string) => void
-}
-
-function formatMoney(value: string | number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
 }
 
 function formatDate(value: string) {

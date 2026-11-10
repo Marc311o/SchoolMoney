@@ -15,6 +15,7 @@ import {
 
 import AppButton from '@/components/AppButton'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
+import { formatMoney } from '@/lib/money'
 
 interface PayFundraiserDialogProps {
   open: boolean
@@ -25,20 +26,6 @@ interface PayFundraiserDialogProps {
   loading: boolean
   onClose: () => void
   onConfirm: () => void
-}
-
-function formatMoney(value: string | number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
-}
-
-function formatAmount(value: string | number) {
-  return Number(value).toLocaleString('en-GB', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
 }
 
 export default function PayFundraiserDialog({
@@ -107,7 +94,7 @@ export default function PayFundraiserDialog({
                           fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        {formatAmount(paymentAmount)}
+                        {formatMoney(paymentAmount.toString())}
                       </TableCell>
                     </TableRow>
 
@@ -127,7 +114,7 @@ export default function PayFundraiserDialog({
                           fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        {formatAmount(balance)}
+                        {formatMoney(balance.toString())}
                       </TableCell>
                     </TableRow>
 
@@ -154,7 +141,7 @@ export default function PayFundraiserDialog({
                           color: 'error.main',
                         }}
                       >
-                        {formatMoney(missingAmount)}
+                        {formatMoney(missingAmount.toString())}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -223,7 +210,7 @@ export default function PayFundraiserDialog({
                           fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        {formatAmount(balance)}
+                        {formatMoney(balance.toString())}
                       </TableCell>
                     </TableRow>
 
@@ -242,7 +229,7 @@ export default function PayFundraiserDialog({
                           color: 'error.main',
                         }}
                       >
-                        − {formatAmount(paymentAmount)}
+                        − {formatMoney(paymentAmount.toString())}
                       </TableCell>
                     </TableRow>
 
@@ -269,7 +256,7 @@ export default function PayFundraiserDialog({
                           color: 'success.main',
                         }}
                       >
-                        {formatMoney(balanceAfterPayment)}
+                        {formatMoney(balanceAfterPayment.toString())}
                       </TableCell>
                     </TableRow>
                   </TableBody>

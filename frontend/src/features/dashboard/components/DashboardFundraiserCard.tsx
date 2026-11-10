@@ -5,6 +5,7 @@ import AppAvatar from '@/components/AppAvatar'
 import WhiteCard from '@/components/WhiteCard'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import StatusBadge from '@/components/StatusBadge'
+import { formatMoney } from '@/lib/money'
 
 interface DashboardFundraiserCardProps {
   id: string
@@ -27,13 +28,6 @@ function formatDate(value: string) {
     day: 'numeric',
     month: 'short',
   })
-}
-
-function formatMoney(value: string) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
 }
 
 export default function DashboardFundraiserCard({

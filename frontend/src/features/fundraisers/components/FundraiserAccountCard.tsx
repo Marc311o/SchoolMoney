@@ -7,17 +7,11 @@ import IconButton from '@mui/material/IconButton'
 
 import PrimaryCard from '@/components/PrimaryCard'
 import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
+import { formatMoney } from '@/lib/money'
 
 interface FundraiserAccountCardProps {
   iban: string | null
   balance: string
-}
-
-function formatMoney(value: string | number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
 }
 
 export default function FundraiserAccountCard({

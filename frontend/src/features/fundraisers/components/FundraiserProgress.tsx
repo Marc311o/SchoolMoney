@@ -1,17 +1,11 @@
 import { Box, Typography } from '@mui/material'
 
+import { formatMoney } from '@/lib/money'
 import WhiteCard from '@/components/WhiteCard'
 import { type FundraiserProgress as FundraiserProgressType } from '@/features/fundraisers/api'
 
 interface FundraiserProgressProps {
   progress: FundraiserProgressType
-}
-
-function formatMoney(value: string | number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'PLN',
-  }).format(Number(value))
 }
 
 export default function FundraiserProgress({
@@ -91,7 +85,8 @@ export default function FundraiserProgress({
                 fontWeight: 500,
               }}
             >
-              {paid} / {required} PLN
+              {formatMoney(paid.toString())} /{' '}
+              {formatMoney(required.toString())}
             </Typography>
           </Box>
 
@@ -107,7 +102,7 @@ export default function FundraiserProgress({
                 fontWeight: 500,
               }}
             >
-              {formatMoney(amountPerChild)}
+              {formatMoney(amountPerChild.toString())}
             </Typography>
           </Box>
         </Box>
