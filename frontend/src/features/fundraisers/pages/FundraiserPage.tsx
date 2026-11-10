@@ -268,7 +268,7 @@ export default function FundraiserPage() {
             subtitle={[
               schoolClass?.name,
               schoolClass?.school_name,
-              `${formatDate(fundraiser.start_date)} – ${formatDate(fundraiser.end_date)}`,
+              `starts ${formatDate(fundraiser.start_date)} · ends ${formatDate(fundraiser.end_date)}`,
             ]
               .filter(Boolean)
               .join(' · ')}
