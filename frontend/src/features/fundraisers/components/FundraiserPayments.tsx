@@ -75,7 +75,10 @@ export default function FundraiserPayments({
   actionsEnabled,
   onPay,
 }: FundraiserPaymentsProps) {
+  const FUNDRAISER_CHILDREN_LIMIT = 5
+
   const [filter, setFilter] = useState<PaymentFilter>('all')
+  const [showAll, setShowAll] = useState(false)
 
   const theme = useTheme()
   const compact = useMediaQuery(theme.breakpoints.down('md'))
@@ -144,6 +147,10 @@ export default function FundraiserPayments({
     return true
   })
 
+  const visibleRows = showAll
+    ? filteredRows
+    : filteredRows.slice(0, FUNDRAISER_CHILDREN_LIMIT)
+
   return (
     <WhiteCard>
       <Stack spacing={2}>
@@ -156,7 +163,10 @@ export default function FundraiserPayments({
               { label: 'Only unpaid', value: 'unpaid' },
             ]}
             value={filter}
-            onChange={setFilter}
+            onChange={(value) => {
+              setFilter(value)
+              setShowAll(false)
+            }}
             fullWidth
           />
         </Box>
@@ -194,7 +204,7 @@ export default function FundraiserPayments({
             </TableHead>
 
             <TableBody>
-              {filteredRows.map(({ id, child, payment }) => {
+              {visibleRows.map(({ id, child, payment }) => {
                 const payer = payment
                   ? members.find((item) => item.parent.id === payment.payer_id)
                   : null
@@ -274,6 +284,17 @@ export default function FundraiserPayments({
             </TableBody>
           </Table>
         </TableContainer>
+
+        {filteredRows.length > FUNDRAISER_CHILDREN_LIMIT && (
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <AppButtonOutlined
+              label={
+                showAll ? 'Show less' : `Show all (${filteredRows.length})`
+              }
+              onClick={() => setShowAll((prev) => !prev)}
+            />
+          </Box>
+        )}
       </Stack>
     </WhiteCard>
   )
