@@ -11,6 +11,8 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 
 import WhiteCard from '@/components/WhiteCard'
@@ -26,7 +28,7 @@ import {
 
 import { type ClassMemberWithParent } from '@/features/classes/api'
 
-import { fullName } from '@/lib/names'
+import { fullName, shortName } from '@/lib/names'
 
 interface FundraiserPaymentsProps {
   payments: FundraiserPayment[]
@@ -74,6 +76,9 @@ export default function FundraiserPayments({
   onPay,
 }: FundraiserPaymentsProps) {
   const [filter, setFilter] = useState<PaymentFilter>('all')
+
+  const theme = useTheme()
+  const compact = useMediaQuery(theme.breakpoints.down('md'))
 
   if (loading) {
     return <CircularProgress />
@@ -142,7 +147,7 @@ export default function FundraiserPayments({
   return (
     <WhiteCard>
       <Stack spacing={2}>
-        <Box sx={{ width: 'fit-content' }}>
+        <Box sx={{ width: '100%' }}>
           <SelectChips<PaymentFilter>
             label="Payment filter"
             options={[
@@ -152,7 +157,7 @@ export default function FundraiserPayments({
             ]}
             value={filter}
             onChange={setFilter}
-            fullWidth={false}
+            fullWidth
           />
         </Box>
 
@@ -181,7 +186,9 @@ export default function FundraiserPayments({
               >
                 <TableCell>Child</TableCell>
                 <TableCell>Paid by</TableCell>
-                <TableCell>Date</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                  Date
+                </TableCell>
                 <TableCell align="right">Amount</TableCell>
               </TableRow>
             </TableHead>
@@ -193,7 +200,6 @@ export default function FundraiserPayments({
                   : null
 
                 const refunded = payment?.refunded_at != null
-                // const unpaid = !payment || refunded
 
                 return (
                   <TableRow
@@ -215,13 +221,19 @@ export default function FundraiserPayments({
                       {!payment || refunded ? (
                         <StatusBadge tone="warning">Unpaid</StatusBadge>
                       ) : payer ? (
-                        fullName(payer.parent)
+                        compact ? (
+                          shortName(payer.parent)
+                        ) : (
+                          fullName(payer.parent)
+                        )
                       ) : (
                         'Unknown parent'
                       )}
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell
+                      sx={{ display: { xs: 'none', md: 'table-cell' } }}
+                    >
                       {payment && !refunded ? formatDate(payment.paid_at) : '—'}
                     </TableCell>
 
