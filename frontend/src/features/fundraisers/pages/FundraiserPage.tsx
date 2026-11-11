@@ -22,6 +22,9 @@ import { useCurrentUser } from '@/features/auth/api'
 import { useClass } from '@/features/classes/api'
 import { useWallet } from '@/features/wallet/api'
 
+import WithdrawFundraiserDialog from '@/features/fundraisers/components/WithdrawFundraiserDialog'
+import DepositFundraiserDialog from '@/features/fundraisers/components/DepositFundraiserDialog'
+
 import {
   useFundraiser,
   useFundraiserPayments,
@@ -29,6 +32,8 @@ import {
   useCreateFundraiserPayment,
   useRefundFundraiserPayment,
   type FundraiserUpdate,
+  useCreateTreasurerWithdrawal,
+  useCreateTreasurerDeposit,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
@@ -71,6 +76,10 @@ export default function FundraiserPage() {
 
   const refundPayment = useRefundFundraiserPayment(fundraiserId)
 
+  const createWithdrawal = useCreateTreasurerWithdrawal(fundraiserId)
+
+  const createDeposit = useCreateTreasurerDeposit(fundraiserId)
+
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -88,6 +97,10 @@ export default function FundraiserPage() {
   const [withdrawingPaymentId, setWithdrawingPaymentId] = useState<
     string | null
   >(null)
+
+  const [withdrawing, setWithdrawing] = useState(false)
+
+  const [depositing, setDepositing] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -167,6 +180,42 @@ export default function FundraiserPage() {
         },
         onError: (refundError) => {
           notify(refundError.message || 'Could not refund payment', 'error')
+        },
+      },
+    )
+  }
+
+  const handleTreasurerWithdrawal = (
+    amount: string,
+    description: string | null,
+  ) => {
+    createWithdrawal.mutate(
+      { amount, description },
+      {
+        onSuccess: () => {
+          notify('Money withdrawn successfully')
+          setWithdrawing(false)
+        },
+        onError: (mutationError) => {
+          notify(mutationError.message || 'Could not withdraw money', 'error')
+        },
+      },
+    )
+  }
+
+  const handleTreasurerDeposit = (
+    amount: string,
+    description: string | null,
+  ) => {
+    createDeposit.mutate(
+      { amount, description },
+      {
+        onSuccess: () => {
+          notify('Money deposited successfully')
+          setDepositing(false)
+        },
+        onError: (mutationError) => {
+          notify(mutationError.message || 'Could not deposit money', 'error')
         },
       },
     )
@@ -289,11 +338,15 @@ export default function FundraiserPage() {
       {canEditFundraiser && (
         <FundraiserTreasurerActions
           onWithdrawToWallet={() => {
-            // TODO: implement withdraw to wallet
+            createWithdrawal.reset()
+            setWithdrawing(true)
           }}
+
           onDepositBack={() => {
-            // TODO: implement deposit back
+            createDeposit.reset()
+            setDepositing(true)
           }}
+
           onAddInvoice={() => {
             // TODO: implement add invoice
           }}
@@ -410,6 +463,27 @@ export default function FundraiserPage() {
           onConfirm={handleWithdraw}
         />
       )}
+
+      {/* Treasurer - Withdraw to wallet dialog */}
+      <WithdrawFundraiserDialog
+        open={withdrawing}
+        fundraiserBalance={fundraiser.progress.current_balance}
+        walletBalance={wallet?.balance ?? '0'}
+        walletLoading={walletPending}
+        loading={createWithdrawal.isPending}
+        onClose={() => setWithdrawing(false)}
+        onConfirm={handleTreasurerWithdrawal}
+      />
+      {/* Treasurer - Deposit dialog */}
+      <DepositFundraiserDialog
+        open={depositing}
+        fundraiserBalance={fundraiser.progress.current_balance}
+        walletBalance={wallet?.balance ?? '0'}
+        walletLoading={walletPending}
+        loading={createDeposit.isPending}
+        onClose={() => setDepositing(false)}
+        onConfirm={handleTreasurerDeposit}
+      />
 
       {/* Snackbar */}
       <AppSnackbar

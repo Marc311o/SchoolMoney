@@ -82,6 +82,27 @@ export type FundraiserPaymentCreate = {
   child_id: string
 }
 
+export type TreasurerOperation = {
+  id: string
+  fundraiser_id: string
+  author_id: string
+  transaction_id: string
+  direction: 'WITHDRAWAL' | 'DEPOSIT'
+  amount: string
+  description: string | null
+  created_at: string
+}
+
+export type TreasurerWithdrawalCreate = {
+  amount: string
+  description?: string | null
+}
+
+export type TreasurerDepositCreate = {
+  amount: string
+  description?: string | null
+}
+
 export const fundraiserKeys = {
   all: ['fundraisers'] as const,
   list: (classId: string) => [...fundraiserKeys.all, 'list', classId] as const,
@@ -196,6 +217,58 @@ export function useRefundFundraiserPayment(fundraiserId: string) {
         queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
       })
 
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.wallet(),
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
+    },
+  })
+}
+
+export function useCreateTreasurerWithdrawal(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<TreasurerOperation, ApiError, TreasurerWithdrawalCreate>({
+    mutationFn: (payload) =>
+      api.post<TreasurerOperation>(
+        `/fundraisers/${fundraiserId}/withdrawals`,
+        payload,
+      ),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.wallet(),
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
+    },
+  })
+}
+
+export function useCreateTreasurerDeposit(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<TreasurerOperation, ApiError, TreasurerDepositCreate>({
+    mutationFn: (payload) =>
+      api.post<TreasurerOperation>(
+        `/fundraisers/${fundraiserId}/deposits`,
+        payload,
+      ),
+
+    onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
       })
