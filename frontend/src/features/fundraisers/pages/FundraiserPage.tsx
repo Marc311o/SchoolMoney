@@ -417,6 +417,9 @@ export default function FundraiserPage() {
             <FundraiserAccountCard
               iban={fundraiser.iban}
               balance={fundraiser.progress.current_balance}
+              collected={'10'} // TODO: real value
+              withdrawals={'20'} // TODO: real value
+              deposits={'30'} // TODO: real value
             />
           </PageSection>
         </Box>
