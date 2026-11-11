@@ -103,6 +103,14 @@ export type TreasurerDepositCreate = {
   description?: string | null
 }
 
+export type FundraiserCloseResult = {
+  fundraiser_id: string
+  status: 'CLOSED'
+  closed_at: string
+  refunded_total: string
+  refund_transactions: number
+}
+
 export const fundraiserKeys = {
   all: ['fundraisers'] as const,
   list: (classId: string) => [...fundraiserKeys.all, 'list', classId] as const,
@@ -298,5 +306,36 @@ export function useTreasurerOperations(fundraiserId: string) {
     queryFn: () =>
       api.get<TreasurerOperation[]>(`/fundraisers/${fundraiserId}/operations`),
     enabled: !!fundraiserId,
+  })
+}
+
+export function useCloseFundraiser(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<FundraiserCloseResult, ApiError>({
+    mutationFn: () =>
+      api.post<FundraiserCloseResult>(`/fundraisers/${fundraiserId}/close`),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'operations', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.wallet(),
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: walletKeys.transactions(),
+      })
+    },
   })
 }

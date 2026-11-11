@@ -35,6 +35,7 @@ import {
   useCreateTreasurerWithdrawal,
   useCreateTreasurerDeposit,
   useTreasurerOperations,
+  useCloseFundraiser,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
@@ -48,6 +49,7 @@ import RefundFundraiserDialog from '@/features/fundraisers/components/RefundFund
 import { fullName } from '@/lib/names'
 import FundraiserWithdrawals from '@/features/fundraisers/components/FundraiserWithdrawals.tsx'
 import FundraiserDeposits from '@/features/fundraisers/components/FundraiserDeposits.tsx'
+import CloseFundraiserDialog from '@/features/fundraisers/components/CloseFundraiserDialog.tsx'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
@@ -94,6 +96,8 @@ export default function FundraiserPage() {
 
   const createDeposit = useCreateTreasurerDeposit(fundraiserId)
 
+  const closeFundraiser = useCloseFundraiser(fundraiserId)
+
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -115,6 +119,8 @@ export default function FundraiserPage() {
   const [withdrawing, setWithdrawing] = useState(false)
 
   const [depositing, setDepositing] = useState(false)
+
+  const [closing, setClosing] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -233,6 +239,20 @@ export default function FundraiserPage() {
         },
       },
     )
+  }
+
+  const handleCloseFundraiser = () => {
+    closeFundraiser.mutate(undefined, {
+      onSuccess: (result) => {
+        notify(
+          `Fundraiser closed successfully. Refunded ${result.refunded_total} (${result.refund_transactions} transactions).`,
+        )
+        setClosing(false)
+      },
+      onError: (closeError) => {
+        notify(closeError.message || 'Could not close fundraiser', 'error')
+      },
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -365,7 +385,8 @@ export default function FundraiserPage() {
             // TODO: implement add invoice
           }}
           onCloseAndRefund={() => {
-            // TODO: implement close and refund
+            closeFundraiser.reset()
+            setClosing(true)
           }}
           onEdit={() => {
             updateFundraiser.reset()
@@ -507,6 +528,14 @@ export default function FundraiserPage() {
         loading={createDeposit.isPending}
         onClose={() => setDepositing(false)}
         onConfirm={handleTreasurerDeposit}
+      />
+
+      {/* Close fundraiser dialog */}
+      <CloseFundraiserDialog
+        open={closing}
+        loading={closeFundraiser.isPending}
+        onClose={() => setClosing(false)}
+        onConfirm={handleCloseFundraiser}
       />
 
       {/* Snackbar */}
