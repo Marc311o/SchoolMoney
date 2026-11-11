@@ -116,3 +116,11 @@ def create_invoice(
     fundraiser_id: UUID, payload: InvoiceCreate, user: CurrentUser, db: DbSession
 ) -> InvoiceRead:
     return service.create_invoice(db, user, fundraiser_id, payload)
+
+
+# Operation List
+@router.get("/{fundraiser_id}/operations")
+def list_treasurer_operations(
+    fundraiser_id: UUID, user: CurrentUser, db: DbSession
+) -> list[TreasurerOperationRead]:
+    return service.list_treasurer_operations(db, user, fundraiser_id)

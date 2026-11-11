@@ -658,3 +658,25 @@ def create_invoice(
     result = InvoiceRead.model_validate(invoice)
     db.commit()
     return result
+
+
+def list_treasurer_operations(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+) -> list[TreasurerOperationRead]:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id)
+
+    operations = db.scalars(
+        select(TreasurerOperation)
+        .where(TreasurerOperation.fundraiser_id == fundraiser.id)
+        .order_by(
+            TreasurerOperation.created_at.desc(),
+            TreasurerOperation.id.desc(),
+        )
+    )
+
+    return [
+        TreasurerOperationRead.model_validate(operation)
+        for operation in operations
+    ]

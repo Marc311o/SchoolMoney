@@ -34,6 +34,7 @@ import {
   type FundraiserUpdate,
   useCreateTreasurerWithdrawal,
   useCreateTreasurerDeposit,
+  useTreasurerOperations,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
@@ -45,6 +46,8 @@ import PayFundraiserDialog from '@/features/fundraisers/components/PayFundraiser
 import RefundFundraiserDialog from '@/features/fundraisers/components/RefundFundraiserDialog'
 
 import { fullName } from '@/lib/names'
+import FundraiserWithdrawals from '@/features/fundraisers/components/FundraiserWithdrawals.tsx'
+import FundraiserDeposits from '@/features/fundraisers/components/FundraiserDeposits.tsx'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
@@ -65,6 +68,17 @@ export default function FundraiserPage() {
 
   const { data: payments = [], isPending: paymentsPending } =
     useFundraiserPayments(fundraiserId)
+
+  const { data: operations = [], isPending: operationsPending } =
+    useTreasurerOperations(fundraiserId)
+
+  const withdrawals = operations.filter(
+    (operation) => operation.direction === 'WITHDRAWAL',
+  )
+
+  const deposits = operations.filter(
+    (operation) => operation.direction === 'DEPOSIT',
+  )
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -412,17 +426,24 @@ export default function FundraiserPage() {
         </Stack>
 
         {/* Right column */}
-        <Box sx={{ minWidth: 0 }}>
+        <Stack spacing={3} sx={{ minWidth: 0 }}>
           <PageSection title="Account">
             <FundraiserAccountCard
               iban={fundraiser.iban}
               balance={fundraiser.progress.current_balance}
-              collected={'10'} // TODO: real value
-              withdrawals={'20'} // TODO: real value
-              deposits={'30'} // TODO: real value
+              collected={fundraiser.progress.paid_total}
+              withdrawals={fundraiser.progress.treasurer_withdrawn_total}
+              deposits={fundraiser.progress.treasurer_deposited_total}
             />
           </PageSection>
-        </Box>
+
+          <FundraiserWithdrawals
+            withdrawals={withdrawals}
+            loading={operationsPending}
+          />
+
+          <FundraiserDeposits deposits={deposits} loading={operationsPending} />
+        </Stack>
       </Box>
 
       {/* Edit fundraiser dialog */}

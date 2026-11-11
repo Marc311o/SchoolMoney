@@ -244,6 +244,10 @@ export function useCreateTreasurerWithdrawal(fundraiserId: string) {
 
     onSuccess: () => {
       void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'operations', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
         queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
       })
 
@@ -270,6 +274,10 @@ export function useCreateTreasurerDeposit(fundraiserId: string) {
 
     onSuccess: () => {
       void queryClient.invalidateQueries({
+        queryKey: [...fundraiserKeys.all, 'operations', fundraiserId],
+      })
+
+      void queryClient.invalidateQueries({
         queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
       })
 
@@ -281,5 +289,14 @@ export function useCreateTreasurerDeposit(fundraiserId: string) {
         queryKey: walletKeys.transactions(),
       })
     },
+  })
+}
+
+export function useTreasurerOperations(fundraiserId: string) {
+  return useQuery<TreasurerOperation[], ApiError>({
+    queryKey: [...fundraiserKeys.all, 'operations', fundraiserId],
+    queryFn: () =>
+      api.get<TreasurerOperation[]>(`/fundraisers/${fundraiserId}/operations`),
+    enabled: !!fundraiserId,
   })
 }
