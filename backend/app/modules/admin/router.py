@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 from app.common.schemas import Page
 from app.core.database import get_db
 from app.modules.admin import service
-from app.modules.admin.schemas import AdminUserRead
+from app.modules.admin.schemas import AdminFundraiserRead, AdminUserRead
 from app.modules.auth.dependencies import get_current_admin
+from app.modules.fundraisers.enums import FundraiserStatus
+from app.modules.fundraisers.schemas import FundraiserBlockUpdate
 from app.modules.users.enums import UserStatus
 from app.modules.users.schemas import UserStatusUpdate
 
@@ -52,3 +54,40 @@ def list_users(
 )
 def set_user_status(user_id: UUID, data: UserStatusUpdate, db: DbSession) -> AdminUserRead:
     return service.set_user_status(db, user_id, data)
+
+
+@router.get(
+    "/fundraisers",
+    response_model=Page[AdminFundraiserRead],
+    summary="All fundraisers, with search and filters (admin only)",
+)
+def list_fundraisers(
+    db: DbSession,
+    q: Annotated[
+        str | None, Query(max_length=100, description="Fundraiser, class or treasurer")
+    ] = None,
+    status: FundraiserStatus | None = None,
+    blocked: bool | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> Page[AdminFundraiserRead]:
+    return service.list_fundraisers(
+        db,
+        query=q,
+        fundraiser_status=status,
+        blocked=blocked,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.patch(
+    "/fundraisers/{fundraiser_id}",
+    response_model=AdminFundraiserRead,
+    summary="Block or unblock a fundraiser (admin only)",
+    responses={404: {"description": "Fundraiser not found"}},
+)
+def set_fundraiser_blocked(
+    fundraiser_id: UUID, data: FundraiserBlockUpdate, db: DbSession
+) -> AdminFundraiserRead:
+    return service.set_fundraiser_blocked(db, fundraiser_id, data)

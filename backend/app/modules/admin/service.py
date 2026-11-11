@@ -1,20 +1,24 @@
 import math
 from collections import defaultdict
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import Select, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Select, distinct, func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.common.schemas import Page
-from app.modules.admin.schemas import AdminUserRead
+from app.modules.admin.schemas import AdminClassRead, AdminFundraiserRead, AdminUserRead
 from app.modules.children.models import Child
 from app.modules.children.schemas import ChildSummaryRead
 from app.modules.classrooms.models import SchoolClass
 from app.modules.classrooms.schemas import SchoolClassRead
+from app.modules.fundraisers.enums import FundraiserStatus
+from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, FundraiserPayment
+from app.modules.fundraisers.schemas import FundraiserBlockUpdate, FundraiserRead
 from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
-from app.modules.users.schemas import UserRead, UserStatusUpdate
+from app.modules.users.schemas import UserRead, UserStatusUpdate, UserSummaryRead
 
 
 def _paginate(db: Session, statement: Select, page: int, page_size: int) -> tuple[list, int]:
@@ -116,5 +120,126 @@ def set_user_status(db: Session, user_id: UUID, data: UserStatusUpdate) -> Admin
     user.status = data.status
     db.flush()
     [row] = _user_rows(db, [user])
+    db.commit()
+    return row
+
+
+# ---------------------------------------------------------------------------
+# Fundraisers
+# ---------------------------------------------------------------------------
+
+
+def _fundraiser_rows(db: Session, fundraisers: list[Fundraiser]) -> list[AdminFundraiserRead]:
+    """Class, treasurer and payment counts for a page of fundraisers, in two queries."""
+    ids = [fundraiser.id for fundraiser in fundraisers]
+    owed = dict(
+        db.execute(
+            select(FundraiserObligation.fundraiser_id, func.count())
+            .where(FundraiserObligation.fundraiser_id.in_(ids))
+            .group_by(FundraiserObligation.fundraiser_id)
+        ).all()
+    )
+    # a child counts once, however many times they paid and got a refund
+    paid = dict(
+        db.execute(
+            select(
+                FundraiserPayment.fundraiser_id, func.count(distinct(FundraiserPayment.child_id))
+            )
+            .where(
+                FundraiserPayment.fundraiser_id.in_(ids),
+                FundraiserPayment.refunded_at.is_(None),
+            )
+            .group_by(FundraiserPayment.fundraiser_id)
+        ).all()
+    )
+
+    rows = []
+    for fundraiser in fundraisers:
+        school_class = fundraiser.school_class
+        rows.append(
+            AdminFundraiserRead(
+                **FundraiserRead.model_validate(fundraiser).model_dump(),
+                school_class=AdminClassRead(
+                    id=school_class.id,
+                    name=school_class.name,
+                    school_name=school_class.school_name,
+                    treasurer=UserSummaryRead.model_validate(school_class.treasurer),
+                ),
+                children_count=owed.get(fundraiser.id, 0),
+                paid_count=paid.get(fundraiser.id, 0),
+                balance=fundraiser.account.balance if fundraiser.account else Decimal("0.00"),
+            )
+        )
+    return rows
+
+
+def _with_relations(statement: Select) -> Select:
+    """Account, class and treasurer come with the fundraisers, not one query per row."""
+    return statement.options(
+        selectinload(Fundraiser.account),
+        selectinload(Fundraiser.school_class).selectinload(SchoolClass.treasurer),
+    )
+
+
+def list_fundraisers(
+    db: Session,
+    *,
+    query: str | None,
+    fundraiser_status: FundraiserStatus | None,
+    blocked: bool | None,
+    page: int,
+    page_size: int,
+) -> Page[AdminFundraiserRead]:
+    """Every fundraiser in every class, newest first."""
+    statement = (
+        select(Fundraiser)
+        .join(SchoolClass, SchoolClass.id == Fundraiser.class_id)
+        .join(User, User.id == SchoolClass.treasurer_id)
+    )
+
+    if query and query.strip():
+        needle = f"%{query.strip()}%"
+        statement = statement.where(
+            or_(
+                Fundraiser.name.ilike(needle),
+                SchoolClass.name.ilike(needle),
+                func.concat(User.first_name, " ", User.last_name).ilike(needle),
+            )
+        )
+    if fundraiser_status is not None:
+        statement = statement.where(Fundraiser.status == fundraiser_status)
+    if blocked is not None:
+        statement = statement.where(Fundraiser.is_blocked.is_(blocked))
+
+    fundraisers, total = _paginate(
+        db,
+        _with_relations(statement.order_by(Fundraiser.created_at.desc(), Fundraiser.id)),
+        page,
+        page_size,
+    )
+    return Page[AdminFundraiserRead](
+        items=_fundraiser_rows(db, fundraisers),
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=math.ceil(total / page_size),
+    )
+
+
+def set_fundraiser_blocked(
+    db: Session, fundraiser_id: UUID, data: FundraiserBlockUpdate
+) -> AdminFundraiserRead:
+    """Block or unblock. The row lock waits for a payment that is going through right now."""
+    fundraiser = db.scalar(
+        _with_relations(select(Fundraiser).where(Fundraiser.id == fundraiser_id)).with_for_update(
+            of=Fundraiser
+        )
+    )
+    if fundraiser is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fundraiser not found")
+
+    fundraiser.is_blocked = data.is_blocked
+    db.flush()
+    [row] = _fundraiser_rows(db, [fundraiser])
     db.commit()
     return row
