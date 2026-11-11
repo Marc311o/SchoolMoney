@@ -57,3 +57,31 @@ def create_test_fundraiser(client, school) -> UUID:
 def top_up_wallet(client, headers, amount="100.00") -> None:
     response = client.post("/api/accounts/me/top-up", headers=headers, json={"amount": amount})
     assert response.status_code == 200, response.text
+
+
+def pay_for_child_helper(client, fundraiser_id: UUID, child_id: str, headers: dict) -> dict:
+    response = client.post(
+        f"{URL}/{fundraiser_id}/payments",
+        headers=headers,
+        json={"child_id": child_id},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def refund_payment_helper(client, fundraiser_id: UUID, payment_id: str, headers: dict) -> dict:
+    response = client.post(
+        f"{URL}/{fundraiser_id}/payments/{payment_id}/refund",
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def close_fundraiser_helper(client, fundraiser_id: UUID, headers: dict) -> dict:
+    response = client.post(
+        f"{URL}/{fundraiser_id}/close",
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
