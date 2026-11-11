@@ -23,7 +23,6 @@ import { AdminFundraisersPage } from '@/features/admin/pages/AdminFundraisersPag
 import { AdminMessagesPage } from '@/features/admin/pages/AdminMessagesPage.tsx'
 import FundraiserPage from '@/features/fundraisers/pages/FundraiserPage'
 
-
 export const router = createBrowserRouter([
   // Public: auth layout
   {
@@ -60,7 +59,10 @@ export const router = createBrowserRouter([
               { path: '/chat/:chatId', element: <ChatPage /> },
               { path: '/reports', element: <ReportsPage /> },
               { path: '/settings', element: <SettingsPage /> },
-              { path: '/fundraisers/:fundraiserId', element: <FundraiserPage /> },
+              {
+                path: '/fundraisers/:fundraiserId',
+                element: <FundraiserPage />,
+              },
             ],
           },
         ],

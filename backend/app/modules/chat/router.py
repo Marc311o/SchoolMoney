@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_admin, get_current_user
 from app.modules.chat import service
 from app.modules.chat.enums import ChatKind
 from app.modules.chat.schemas import (
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/chats", tags=["chat"])
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[Session, Depends(get_db)]
+CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 
 
 @router.get("", response_model=list[ChatRead], summary="My conversations, newest activity first")
@@ -111,3 +112,13 @@ def send_message(
 def mark_read(chat_id: UUID, user: CurrentUser, db: DbSession) -> Response:
     service.mark_read(db, user, chat_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/treasurers/{user_id}/chat",
+    response_model=ChatRead,
+    summary="Open the chat with a treasurer (existing or new; admin only)",
+    responses={404: {"description": "Treasurer not found"}},
+)
+def open_treasurer_chat(user_id: UUID, admin: CurrentAdmin, db: DbSession) -> ChatRead:
+    return service.open_treasurer_chat(db, admin, user_id)
