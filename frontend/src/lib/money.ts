@@ -18,3 +18,10 @@ export function parseMoneyInput(input: string): string | null {
   const [whole, fraction = ''] = normalized.split('.')
   return `${whole.replace(/^0+(?=\d)/, '')}.${fraction.padEnd(2, '0')}`
 }
+
+const WHOLE = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
+
+/** "1234.56" -> "1,235": for tight spaces, with the exact amount in a tooltip */
+export function formatMoneyShort(amount: string): string {
+  return WHOLE.format(Number(amount))
+}

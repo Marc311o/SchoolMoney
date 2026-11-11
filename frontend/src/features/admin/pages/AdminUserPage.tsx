@@ -40,11 +40,11 @@ const STATUSES: SelectChipOption<StatusFilter>[] = [
   { value: 'PENDING_ACTIVATION', label: 'Not activated' },
 ]
 
-/** Wait for a pause in typing before asking the API */
 const SEARCH_DELAY_MS = 300
 
 export function AdminUsersPage() {
   const theme = useTheme()
+  const phone = useMediaQuery(theme.breakpoints.down('sm'))
   const compact = useMediaQuery(theme.breakpoints.down('md'))
   const wide = useMediaQuery(theme.breakpoints.up('lg'))
 
@@ -162,6 +162,7 @@ export function AdminUsersPage() {
               users={users.data.items}
               treasurers={tab === 'treasurers'}
               compact={compact}
+              phone={phone}
               wide={wide}
               busyId={
                 setUserStatus.isPending
