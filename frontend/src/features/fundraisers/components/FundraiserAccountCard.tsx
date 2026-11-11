@@ -47,8 +47,8 @@ export default function FundraiserAccountCard({
 
   const history = [
     { label: 'Collected', value: collected },
-    { label: 'Withdrawals', value: withdrawals },
-    { label: 'Deposits', value: deposits },
+    { label: 'Withdrawals', value: withdrawals, prefix: '-' },
+    { label: 'Deposits', value: deposits, prefix: '+' },
   ]
 
   return (
@@ -177,6 +177,7 @@ export default function FundraiserAccountCard({
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
+                    {item.prefix ?? ''}
                     {formatMoney(item.value)}
                   </Typography>
                 </Stack>
