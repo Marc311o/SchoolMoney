@@ -676,7 +676,4 @@ def list_treasurer_operations(
         )
     )
 
-    return [
-        TreasurerOperationRead.model_validate(operation)
-        for operation in operations
-    ]
+    return [TreasurerOperationRead.model_validate(operation) for operation in operations]
