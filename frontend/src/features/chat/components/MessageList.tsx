@@ -101,7 +101,7 @@ export function MessageList({
             <MessageBubble
               message={message}
               mine={message.sender.id === myId}
-              showName={kind === 'CLASS' && newSender}
+              showName={kind !== 'DIRECT' && newSender}
             />
           </Fragment>
         )

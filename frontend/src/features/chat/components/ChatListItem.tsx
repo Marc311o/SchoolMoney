@@ -1,7 +1,11 @@
 import { Box, ButtonBase, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 
-import { type ChatSummary, messagePreview } from '@/features/chat/api'
+import {
+  type ChatSummary,
+  messagePreview,
+  treasurerLabel,
+} from '@/features/chat/api'
 import { ChatAvatar } from '@/features/chat/components/ChatAvatar'
 import { UnreadBadge } from '@/features/chat/components/UnreadBadge'
 import { shortTimestamp } from '@/lib/dates'
@@ -20,6 +24,7 @@ export function ChatListItem({
   onClick,
 }: ChatListItemProps) {
   const hasUnread = chat.unread_count > 0
+  const treasurer = treasurerLabel(chat)
 
   return (
     <ButtonBase
@@ -58,6 +63,12 @@ export function ChatListItem({
             {shortTimestamp(chat.last_activity_at)}
           </Typography>
         </Box>
+
+        {treasurer && (
+          <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary' }}>
+            {treasurer}
+          </Typography>
+        )}
 
         <Box
           sx={{

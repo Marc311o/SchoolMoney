@@ -4,7 +4,11 @@ import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded'
 import { Link as RouterLink } from 'react-router'
 
 import StatusBadge from '@/components/StatusBadge'
-import type { ChatKind, ChatSummary } from '@/features/chat/api'
+import {
+  type ChatKind,
+  type ChatSummary,
+  treasurerLabel,
+} from '@/features/chat/api'
 import { ChatAvatar } from '@/features/chat/components/ChatAvatar'
 
 const KINDS: Record<
@@ -31,7 +35,8 @@ function subtitle(chat: ChatSummary): string {
     case 'DIRECT':
       return 'Direct message'
     case 'ADMIN':
-      return 'SchoolMoney support'
+      // the treasurer sees "Administrator", the administrator sees the treasurer
+      return treasurerLabel(chat) ?? 'SchoolMoney support'
   }
 }
 
@@ -43,7 +48,9 @@ interface ConversationHeaderProps {
 
 /** A class chat's header is a link to the class page */
 export function ConversationHeader({ chat, onBack }: ConversationHeaderProps) {
-  const kind = KINDS[chat.kind]
+  const kind = chat.treasurer_classes
+    ? { label: 'Treasurer', tone: 'neutral' as const }
+    : KINDS[chat.kind]
   const classLink = chat.class_id ? `/classes/${chat.class_id}` : null
 
   const identity = (
@@ -114,9 +121,12 @@ export function ConversationHeader({ chat, onBack }: ConversationHeaderProps) {
         <Box sx={{ ...identitySx, p: 1 }}>{identity}</Box>
       )}
 
-      <Box sx={{ pr: 1 }}>
-        <StatusBadge tone={kind.tone}>{kind.label}</StatusBadge>
-      </Box>
+      {/* narrow screens: the title needs the room */}
+      {!onBack && (
+        <Box sx={{ pr: 1 }}>
+          <StatusBadge tone={kind.tone}>{kind.label}</StatusBadge>
+        </Box>
+      )}
     </Box>
   )
 }

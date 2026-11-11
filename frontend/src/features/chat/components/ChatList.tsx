@@ -10,7 +10,6 @@ import WhiteCard from '@/components/WhiteCard'
 import {
   type ChatSummary,
   type ChatTab,
-  chatTabs,
   filterChats,
 } from '@/features/chat/api'
 import { ChatListItem } from '@/features/chat/components/ChatListItem'
@@ -28,12 +27,13 @@ interface ChatListProps {
   isError: boolean
   myId: string
   selectedId: string | undefined
-  /** Shows the Admin tab and the way to start the admin chat */
-  isTreasurer: boolean
+  tabs: ChatTab[]
+  searchPlaceholder?: string
+  newMessageLabel?: string
   onOpen: (chatId: string) => void
   onNewMessage: () => void
-  onMessageAdmin: () => void
-  messageAdminPending: boolean
+  onMessageAdmin?: () => void
+  messageAdminPending?: boolean
 }
 
 /** Left column: tabs, search, conversations and "New message" */
@@ -43,23 +43,26 @@ export function ChatList({
   isError,
   myId,
   selectedId,
-  isTreasurer,
+  tabs,
+  searchPlaceholder = 'Search class or parent',
+  newMessageLabel = 'New message',
   onOpen,
   onNewMessage,
   onMessageAdmin,
-  messageAdminPending,
+  messageAdminPending = false,
 }: ChatListProps) {
   const [tab, setTab] = useState<ChatTab>('ALL')
   const [search, setSearch] = useState('')
 
   const visible = filterChats(chats, tab, search)
-  const tabOptions = chatTabs(isTreasurer).map((value) => ({
+  const tabOptions = tabs.map((value) => ({
     value,
     label: TAB_LABELS[value],
   }))
-  // the treasurer has not written to the administrator yet
   const canStartAdminChat =
-    tab === 'ADMIN' && !chats.some((chat) => chat.kind === 'ADMIN')
+    onMessageAdmin !== undefined &&
+    tab === 'ADMIN' &&
+    !chats.some((chat) => chat.kind === 'ADMIN')
 
   return (
     <WhiteCard
@@ -75,16 +78,18 @@ export function ChatList({
         spacing={1.5}
         sx={{ p: 2, pb: 1.5, borderBottom: 1, borderColor: 'divider' }}
       >
-        <SelectChips
-          label="Filter conversations"
-          options={tabOptions}
-          value={tab}
-          onChange={setTab}
-        />
+        {tabOptions.length > 1 && (
+          <SelectChips
+            label="Filter conversations"
+            options={tabOptions}
+            value={tab}
+            onChange={setTab}
+          />
+        )}
         <TextInput
           value={search}
           onChange={setSearch}
-          placeholder="Search class or parent"
+          placeholder={searchPlaceholder}
           ariaLabel="Search conversations"
           icon={<SearchRoundedIcon fontSize="small" />}
         />
@@ -131,7 +136,7 @@ export function ChatList({
 
       <Box sx={{ p: 2, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
         <AppButtonOutlined
-          label="New message"
+          label={newMessageLabel}
           onClick={onNewMessage}
           fullWidth
         />

@@ -17,28 +17,46 @@ import AppAvatar from '@/components/AppAvatar'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import TextInput from '@/components/TextInput'
 import type { UserSummary } from '@/features/classes/api'
-import { useChatContacts } from '@/features/chat/api'
 import { fullName, initials } from '@/lib/names'
 
-/** Wait for a pause in typing before asking the API */
 const DEBOUNCE_MS = 300
 
-interface NewMessageDialogProps {
+export interface ContactResults<T extends UserSummary> {
+  data: T[] | undefined
+  isPending: boolean
+  isError: boolean
+}
+
+interface NewMessageDialogProps<T extends UserSummary> {
   open: boolean
+  title: string
+  description: string
+  noun: string
+  minChars: number
+  onSearch: (query: string) => void
+  results: ContactResults<T>
+  describe?: (user: T) => string
   onClose: () => void
-  onSelect: (user: UserSummary) => void
-  /** The person whose chat is being opened right now */
+  onSelect: (user: T) => void
   openingUserId: string | null
   error: string | null
 }
 
-export function NewMessageDialog({
+/** Pick a person to write to; the page decides who can be found */
+export function NewMessageDialog<T extends UserSummary>({
   open,
+  title,
+  description,
+  noun,
+  minChars,
+  onSearch,
+  results,
+  describe,
   onClose,
   onSelect,
   openingUserId,
   error,
-}: NewMessageDialogProps) {
+}: NewMessageDialogProps<T>) {
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
 
@@ -47,8 +65,9 @@ export function NewMessageDialog({
     return () => clearTimeout(timer)
   }, [search])
 
-  const contacts = useChatContacts(query)
-  const tooShort = query.trim().length < 2
+  useEffect(() => onSearch(query), [query, onSearch])
+
+  const tooShort = query.trim().length < minChars
   const busy = openingUserId !== null
 
   return (
@@ -66,39 +85,44 @@ export function NewMessageDialog({
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 700 }}>New message</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>{title}</DialogTitle>
 
       <DialogContent>
         <Stack spacing={1.5}>
           <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>
-            Write to any parent in SchoolMoney. Find them by name.
+            {description}
           </Typography>
           <TextInput
             value={search}
             onChange={setSearch}
             placeholder="First or last name"
-            ariaLabel="Search parents"
+            ariaLabel={`Search ${noun}`}
             icon={<SearchRoundedIcon fontSize="small" />}
           />
 
           <Box sx={{ minHeight: 160 }}>
             {tooShort ? (
-              <Hint>Type at least 2 letters.</Hint>
-            ) : contacts.isError ? (
+              <Hint>Type at least {minChars} letters.</Hint>
+            ) : results.isError ? (
               <Hint>Could not search right now. Try again.</Hint>
-            ) : contacts.isPending ? (
+            ) : results.isPending || !results.data ? (
               <CircularProgress
                 size={24}
                 sx={{ display: 'block', mx: 'auto', mt: 3 }}
               />
-            ) : contacts.data.length === 0 ? (
-              <Hint>No parents match “{query.trim()}”.</Hint>
+            ) : results.data.length === 0 ? (
+              <Hint>
+                {query.trim()
+                  ? `No ${noun} match “${query.trim()}”.`
+                  : `No ${noun} yet.`}
+              </Hint>
             ) : (
               <Stack spacing={0.25}>
-                {contacts.data.map((user) => (
+                {results.data.map((user) => (
                   <ContactRow
                     key={user.id}
                     user={user}
+                    detail={describe?.(user)}
                     opening={openingUserId === user.id}
                     disabled={busy}
                     onClick={() => onSelect(user)}
@@ -125,11 +149,13 @@ export function NewMessageDialog({
 
 function ContactRow({
   user,
+  detail,
   opening,
   disabled,
   onClick,
 }: {
   user: UserSummary
+  detail: string | undefined
   opening: boolean
   disabled: boolean
   onClick: () => void
@@ -159,9 +185,16 @@ function ContactRow({
         label={initials(name)}
         size={36}
       />
-      <Typography noWrap sx={{ flex: 1, fontWeight: 600, fontSize: 15 }}>
-        {name}
-      </Typography>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography noWrap sx={{ fontWeight: 600, fontSize: 15 }}>
+          {name}
+        </Typography>
+        {detail && (
+          <Typography noWrap sx={{ fontSize: 13, color: 'text.secondary' }}>
+            {detail}
+          </Typography>
+        )}
+      </Box>
       {opening && <CircularProgress size={18} />}
     </ButtonBase>
   )

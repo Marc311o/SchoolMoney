@@ -35,6 +35,8 @@ export type ChatSummary = {
   class_id: string | null
   /** DIRECT: the other parent. null for CLASS and for my ADMIN chat. */
   other_user: UserSummary | null
+  other_user_blocked: boolean
+  treasurer_classes: string[] | null
   last_message: ChatMessage | null
   unread_count: number
   last_activity_at: string
@@ -193,6 +195,20 @@ export function useOpenDirectChat() {
   })
 }
 
+/**
+ * Administrators: opens the chat with a treasurer, the same one the treasurer
+ * reaches with "Message the administrator". Navigate to the returned chat's id.
+ */
+export function useOpenTreasurerChat() {
+  const queryClient = useQueryClient()
+
+  return useMutation<ChatSummary, ApiError, string>({
+    mutationFn: (treasurerId) =>
+      api.post<ChatSummary>(`/admin/treasurers/${treasurerId}/chat`),
+    onSuccess: (chat) => rememberChat(queryClient, chat),
+  })
+}
+
 /** Opens my chat with the administrator. Treasurers only (others get 403). */
 export function useOpenAdminChat() {
   const queryClient = useQueryClient()
@@ -267,14 +283,23 @@ export function totalUnread(chats: ChatSummary[] | undefined): number {
 
 /**
  * The preview line under the title: "You: …" for my messages, the sender's
- * first name in class chats ("Marek: …"), just the text otherwise.
+ * first name where more people write ("Marek: …"), just the text in direct chats.
  */
 export function messagePreview(chat: ChatSummary, myId: string): string {
   const message = chat.last_message
   if (!message) return 'No messages yet'
   if (message.sender.id === myId) return `You: ${message.content}`
-  if (chat.kind === 'CLASS') {
+  if (chat.kind !== 'DIRECT') {
     return `${message.sender.first_name}: ${message.content}`
   }
   return message.content
+}
+
+/** "Treasurer of 1A, 3B": who an administrator is talking to; null otherwise */
+export function treasurerLabel(chat: ChatSummary): string | null {
+  if (!chat.treasurer_classes) return null
+  const label = chat.treasurer_classes.length
+    ? `Treasurer of ${chat.treasurer_classes.join(', ')}`
+    : 'No longer a treasurer'
+  return chat.other_user_blocked ? `${label} · blocked` : label
 }

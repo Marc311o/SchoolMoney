@@ -80,6 +80,7 @@ export const router = createBrowserRouter([
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'fundraisers', element: <AdminFundraisersPage /> },
               { path: 'messages', element: <AdminMessagesPage /> },
+              { path: 'messages/:chatId', element: <AdminMessagesPage /> },
             ],
           },
         ],
