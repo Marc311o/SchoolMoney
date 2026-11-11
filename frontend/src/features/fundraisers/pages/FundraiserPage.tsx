@@ -11,12 +11,12 @@ import {
 
 import { Link as RouterLink, useParams } from 'react-router'
 
-import AppButtonOutlined from '@/components/AppButtonOutlined'
 import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
 import AppAvatar from '@/components/AppAvatar'
+import FundraiserTreasurerActions from '@/features/fundraisers/components/FundraiserTreasurerActions'
 
 import { useCurrentUser } from '@/features/auth/api'
 import { useClass } from '@/features/classes/api'
@@ -272,17 +272,6 @@ export default function FundraiserPage() {
             ]
               .filter(Boolean)
               .join(' · ')}
-            actions={
-              canEditFundraiser && (
-                <AppButtonOutlined
-                  label="Edit fundraiser"
-                  onClick={() => {
-                    updateFundraiser.reset()
-                    setEditing(true)
-                  }}
-                />
-              )
-            }
           >
             {fundraiser.description && (
               <Typography color="text.secondary">
@@ -296,6 +285,27 @@ export default function FundraiserPage() {
       <PageSection title="Progress">
         <FundraiserProgress progress={fundraiser.progress} />
       </PageSection>
+
+      {canEditFundraiser && (
+        <FundraiserTreasurerActions
+          onWithdrawToWallet={() => {
+            // TODO: implement withdraw to wallet
+          }}
+          onDepositBack={() => {
+            // TODO: implement deposit back
+          }}
+          onAddInvoice={() => {
+            // TODO: implement add invoice
+          }}
+          onCloseAndRefund={() => {
+            // TODO: implement close and refund
+          }}
+          onEdit={() => {
+            updateFundraiser.reset()
+            setEditing(true)
+          }}
+        />
+      )}
 
       <Box
         sx={{
