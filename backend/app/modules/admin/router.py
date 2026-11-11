@@ -9,14 +9,18 @@ from app.core.database import get_db
 from app.modules.admin import service
 from app.modules.admin.schemas import AdminFundraiserRead, AdminUserRead
 from app.modules.auth.dependencies import get_current_admin
+from app.modules.chat import service as chat_service
+from app.modules.chat.schemas import ChatRead
 from app.modules.fundraisers.enums import FundraiserStatus
 from app.modules.fundraisers.schemas import FundraiserBlockUpdate
 from app.modules.users.enums import UserStatus
+from app.modules.users.models import User
 from app.modules.users.schemas import UserStatusUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
 
 DbSession = Annotated[Session, Depends(get_db)]
+CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 
 
 @router.get(
@@ -91,3 +95,13 @@ def set_fundraiser_blocked(
     fundraiser_id: UUID, data: FundraiserBlockUpdate, db: DbSession
 ) -> AdminFundraiserRead:
     return service.set_fundraiser_blocked(db, fundraiser_id, data)
+
+
+@router.post(
+    "/treasurers/{user_id}/chat",
+    response_model=ChatRead,
+    summary="Open the chat with a treasurer (existing or new; admin only)",
+    responses={404: {"description": "Treasurer not found"}},
+)
+def open_treasurer_chat(user_id: UUID, admin: CurrentAdmin, db: DbSession) -> ChatRead:
+    return chat_service.open_treasurer_chat(db, admin, user_id)
