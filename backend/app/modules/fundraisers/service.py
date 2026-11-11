@@ -27,6 +27,12 @@ from app.modules.fundraisers.models import (
 )
 from app.modules.fundraisers.schemas import (
     ChildFundraiserProgressRead,
+    FundraiserChildItemChildRead,
+    FundraiserChildItemRead,
+    FundraiserChildPayerRead,
+    FundraiserChildPaymentInfoRead,
+    FundraiserChildPaymentStatus,
+    FundraiserChildrenListRead,
     FundraiserCloseResult,
     FundraiserCreate,
     FundraiserDetailRead,
@@ -124,16 +130,24 @@ def get_fundraiser(db: Session, user: User, fundraiser_id: UUID) -> FundraiserDe
             joinedload(FundraiserPayment.transaction),
             joinedload(FundraiserPayment.refund_transaction),
         )
-    )
+    ).all()
+
     paid_by_child: dict[UUID, Decimal] = defaultdict(lambda: ZERO)
     refunded_by_child: dict[UUID, Decimal] = defaultdict(lambda: ZERO)
+
+    historical_paid_before_close = ZERO
+
     for payment in payments:
+        refund_type = payment.refund_transaction.type if payment.refund_transaction else None
+
         if payment.refunded_at is None:
             paid_by_child[payment.child_id] += payment.transaction.amount
+            historical_paid_before_close += payment.transaction.amount
         else:
-            # Older full-refund rows can lack a linked refund transaction.
             refund = payment.refund_transaction or payment.transaction
             refunded_by_child[payment.child_id] += refund.amount
+            if refund_type == TransactionType.CLOSE_REFUND:
+                historical_paid_before_close += payment.transaction.amount
 
     rate = fundraiser.required_amount_per_child
     children = []
@@ -158,11 +172,18 @@ def get_fundraiser(db: Session, user: User, fundraiser_id: UUID) -> FundraiserDe
             .group_by(TreasurerOperation.direction)
         ).all()
     )
+
+    reported_paid_total = (
+        historical_paid_before_close
+        if fundraiser.status == FundraiserStatus.CLOSED
+        else sum(paid_by_child.values(), ZERO)
+    )
+
     progress = FundraiserProgressRead(
         fundraiser_id=fundraiser.id,
         children_count=len(child_ids),
         required_total=rate * len(child_ids),
-        paid_total=sum(paid_by_child.values(), ZERO),
+        paid_total=reported_paid_total,
         refunded_total=sum(refunded_by_child.values(), ZERO),
         treasurer_withdrawn_total=operations.get(TreasurerOperationDirection.WITHDRAWAL, ZERO),
         treasurer_deposited_total=operations.get(TreasurerOperationDirection.DEPOSIT, ZERO),
@@ -677,3 +698,104 @@ def list_treasurer_operations(
     )
 
     return [TreasurerOperationRead.model_validate(operation) for operation in operations]
+
+
+def get_fundraiser_children(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+) -> FundraiserChildrenListRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id)
+
+    obligations = db.scalars(
+        select(FundraiserObligation)
+        .where(FundraiserObligation.fundraiser_id == fundraiser.id)
+        .options(joinedload(FundraiserObligation.child))
+    ).all()
+
+    obligations = sorted(
+        obligations,
+        key=lambda o: (
+            (o.child.last_name.lower(), o.child.first_name.lower()) if o.child else ("", "")
+        ),
+    )
+
+    payments = db.scalars(
+        select(FundraiserPayment)
+        .where(FundraiserPayment.fundraiser_id == fundraiser.id)
+        .options(
+            joinedload(FundraiserPayment.payer),
+            joinedload(FundraiserPayment.refund_transaction),
+            joinedload(FundraiserPayment.transaction),
+        )
+        .order_by(FundraiserPayment.paid_at.desc(), FundraiserPayment.id.desc())
+    ).all()
+
+    payments_by_child: dict[UUID, list[FundraiserPayment]] = defaultdict(list)
+    for p in payments:
+        payments_by_child[p.child_id].append(p)
+
+    children_items: list[FundraiserChildItemRead] = []
+
+    for obligation in obligations:
+        child = obligation.child
+        if child is None:
+            continue
+
+        child_payments = payments_by_child.get(child.id, [])
+
+        active_payment = next((p for p in child_payments if p.refunded_at is None), None)
+        latest_payment = active_payment or (child_payments[0] if child_payments else None)
+
+        payment_status = FundraiserChildPaymentStatus.UNPAID
+        refunded_amount = ZERO
+        is_paid = False
+        payer_info = None
+        paid_at = None
+
+        if latest_payment is not None:
+            paid_at = latest_payment.paid_at
+            if latest_payment.payer:
+                payer_info = FundraiserChildPayerRead(
+                    id=latest_payment.payer.id,
+                    first_name=latest_payment.payer.first_name,
+                    last_name=latest_payment.payer.last_name,
+                )
+
+            if latest_payment.refunded_at is None:
+                payment_status = FundraiserChildPaymentStatus.PAID
+                is_paid = True
+            else:
+                refund_tx = latest_payment.refund_transaction
+                if refund_tx is not None and refund_tx.type == TransactionType.CLOSE_REFUND:
+                    payment_status = FundraiserChildPaymentStatus.REFUNDED
+                    refunded_amount = refund_tx.amount
+                    is_paid = True
+                else:
+                    payment_status = FundraiserChildPaymentStatus.UNPAID
+                    is_paid = False
+
+        children_items.append(
+            FundraiserChildItemRead(
+                child=FundraiserChildItemChildRead(
+                    id=child.id,
+                    first_name=child.first_name,
+                    last_name=child.last_name,
+                    avatar_url=getattr(child, "avatar_url", None),
+                ),
+                is_current_user_child=child.parent_id == user.id,
+                payment_status=payment_status,
+                payment=FundraiserChildPaymentInfoRead(
+                    is_paid=is_paid,
+                    payer=payer_info,
+                    paid_at=paid_at,
+                ),
+                refunded_amount=refunded_amount,
+            )
+        )
+
+    return FundraiserChildrenListRead(
+        fundraiser_id=fundraiser.id,
+        status=fundraiser.status,
+        children=children_items,
+    )
