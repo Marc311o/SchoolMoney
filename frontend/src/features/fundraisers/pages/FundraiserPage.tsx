@@ -11,16 +11,19 @@ import {
 
 import { Link as RouterLink, useParams } from 'react-router'
 
-import AppButtonOutlined from '@/components/AppButtonOutlined'
 import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
 import AppAvatar from '@/components/AppAvatar'
+import FundraiserTreasurerActions from '@/features/fundraisers/components/FundraiserTreasurerActions'
 
 import { useCurrentUser } from '@/features/auth/api'
 import { useClass } from '@/features/classes/api'
 import { useWallet } from '@/features/wallet/api'
+
+import WithdrawFundraiserDialog from '@/features/fundraisers/components/WithdrawFundraiserDialog'
+import DepositFundraiserDialog from '@/features/fundraisers/components/DepositFundraiserDialog'
 
 import {
   useFundraiser,
@@ -29,6 +32,9 @@ import {
   useCreateFundraiserPayment,
   useRefundFundraiserPayment,
   type FundraiserUpdate,
+  useCreateTreasurerWithdrawal,
+  useCreateTreasurerDeposit,
+  useTreasurerOperations,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
@@ -40,6 +46,8 @@ import PayFundraiserDialog from '@/features/fundraisers/components/PayFundraiser
 import RefundFundraiserDialog from '@/features/fundraisers/components/RefundFundraiserDialog'
 
 import { fullName } from '@/lib/names'
+import FundraiserWithdrawals from '@/features/fundraisers/components/FundraiserWithdrawals.tsx'
+import FundraiserDeposits from '@/features/fundraisers/components/FundraiserDeposits.tsx'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
@@ -61,6 +69,17 @@ export default function FundraiserPage() {
   const { data: payments = [], isPending: paymentsPending } =
     useFundraiserPayments(fundraiserId)
 
+  const { data: operations = [], isPending: operationsPending } =
+    useTreasurerOperations(fundraiserId)
+
+  const withdrawals = operations.filter(
+    (operation) => operation.direction === 'WITHDRAWAL',
+  )
+
+  const deposits = operations.filter(
+    (operation) => operation.direction === 'DEPOSIT',
+  )
+
   // ---------------------------------------------------------------------------
   // Mutations
   // ---------------------------------------------------------------------------
@@ -70,6 +89,10 @@ export default function FundraiserPage() {
   const createPayment = useCreateFundraiserPayment(fundraiserId)
 
   const refundPayment = useRefundFundraiserPayment(fundraiserId)
+
+  const createWithdrawal = useCreateTreasurerWithdrawal(fundraiserId)
+
+  const createDeposit = useCreateTreasurerDeposit(fundraiserId)
 
   // ---------------------------------------------------------------------------
   // State
@@ -88,6 +111,10 @@ export default function FundraiserPage() {
   const [withdrawingPaymentId, setWithdrawingPaymentId] = useState<
     string | null
   >(null)
+
+  const [withdrawing, setWithdrawing] = useState(false)
+
+  const [depositing, setDepositing] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -167,6 +194,42 @@ export default function FundraiserPage() {
         },
         onError: (refundError) => {
           notify(refundError.message || 'Could not refund payment', 'error')
+        },
+      },
+    )
+  }
+
+  const handleTreasurerWithdrawal = (
+    amount: string,
+    description: string | null,
+  ) => {
+    createWithdrawal.mutate(
+      { amount, description },
+      {
+        onSuccess: () => {
+          notify('Money withdrawn successfully')
+          setWithdrawing(false)
+        },
+        onError: (mutationError) => {
+          notify(mutationError.message || 'Could not withdraw money', 'error')
+        },
+      },
+    )
+  }
+
+  const handleTreasurerDeposit = (
+    amount: string,
+    description: string | null,
+  ) => {
+    createDeposit.mutate(
+      { amount, description },
+      {
+        onSuccess: () => {
+          notify('Money deposited successfully')
+          setDepositing(false)
+        },
+        onError: (mutationError) => {
+          notify(mutationError.message || 'Could not deposit money', 'error')
         },
       },
     )
@@ -272,17 +335,6 @@ export default function FundraiserPage() {
             ]
               .filter(Boolean)
               .join(' · ')}
-            actions={
-              canEditFundraiser && (
-                <AppButtonOutlined
-                  label="Edit fundraiser"
-                  onClick={() => {
-                    updateFundraiser.reset()
-                    setEditing(true)
-                  }}
-                />
-              )
-            }
           >
             {fundraiser.description && (
               <Typography color="text.secondary">
@@ -296,6 +348,31 @@ export default function FundraiserPage() {
       <PageSection title="Progress">
         <FundraiserProgress progress={fundraiser.progress} />
       </PageSection>
+
+      {canEditFundraiser && (
+        <FundraiserTreasurerActions
+          onWithdrawToWallet={() => {
+            createWithdrawal.reset()
+            setWithdrawing(true)
+          }}
+
+          onDepositBack={() => {
+            createDeposit.reset()
+            setDepositing(true)
+          }}
+
+          onAddInvoice={() => {
+            // TODO: implement add invoice
+          }}
+          onCloseAndRefund={() => {
+            // TODO: implement close and refund
+          }}
+          onEdit={() => {
+            updateFundraiser.reset()
+            setEditing(true)
+          }}
+        />
+      )}
 
       <Box
         sx={{
@@ -349,14 +426,24 @@ export default function FundraiserPage() {
         </Stack>
 
         {/* Right column */}
-        <Box sx={{ minWidth: 0 }}>
+        <Stack spacing={3} sx={{ minWidth: 0 }}>
           <PageSection title="Account">
             <FundraiserAccountCard
               iban={fundraiser.iban}
               balance={fundraiser.progress.current_balance}
+              collected={fundraiser.progress.paid_total}
+              withdrawals={fundraiser.progress.treasurer_withdrawn_total}
+              deposits={fundraiser.progress.treasurer_deposited_total}
             />
           </PageSection>
-        </Box>
+
+          <FundraiserWithdrawals
+            withdrawals={withdrawals}
+            loading={operationsPending}
+          />
+
+          <FundraiserDeposits deposits={deposits} loading={operationsPending} />
+        </Stack>
       </Box>
 
       {/* Edit fundraiser dialog */}
@@ -400,6 +487,27 @@ export default function FundraiserPage() {
           onConfirm={handleWithdraw}
         />
       )}
+
+      {/* Treasurer - Withdraw to wallet dialog */}
+      <WithdrawFundraiserDialog
+        open={withdrawing}
+        fundraiserBalance={fundraiser.progress.current_balance}
+        walletBalance={wallet?.balance ?? '0'}
+        walletLoading={walletPending}
+        loading={createWithdrawal.isPending}
+        onClose={() => setWithdrawing(false)}
+        onConfirm={handleTreasurerWithdrawal}
+      />
+      {/* Treasurer - Deposit dialog */}
+      <DepositFundraiserDialog
+        open={depositing}
+        fundraiserBalance={fundraiser.progress.current_balance}
+        walletBalance={wallet?.balance ?? '0'}
+        walletLoading={walletPending}
+        loading={createDeposit.isPending}
+        onClose={() => setDepositing(false)}
+        onConfirm={handleTreasurerDeposit}
+      />
 
       {/* Snackbar */}
       <AppSnackbar
