@@ -16,6 +16,7 @@ import { AuthLayout } from '@/layouts/AuthLayout'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { GuestOnly } from '@/features/auth/components/GuestOnly.tsx'
 import { RequireAuth } from '@/features/auth/components/RequireAuth.tsx'
+import FundraiserPage from '@/features/fundraisers/pages/FundraiserPage'
 
 export const router = createBrowserRouter([
   // Public: auth layout
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: '/chat/:chatId', element: <ChatPage /> },
           { path: '/reports', element: <ReportsPage /> },
           { path: '/settings', element: <SettingsPage /> },
+          { path: '/fundraisers/:fundraiserId', element: <FundraiserPage /> },
         ],
       },
     ],

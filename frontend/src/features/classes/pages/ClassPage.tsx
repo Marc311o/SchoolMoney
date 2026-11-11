@@ -10,7 +10,6 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
 import AppSnackbar, { type SnackbarSeverity } from '@/components/AppSnackbar'
-import EmptyState from '@/components/EmptyState'
 import PageHeader from '@/components/PageHeader'
 import PageSection from '@/components/PageSection'
 import StatusBadge from '@/components/StatusBadge'
@@ -30,6 +29,19 @@ import { WaitingList } from '@/features/classes/components/WaitingList'
 import { ParentSearchSection } from '@/features/classes/components/ParentSearchSection'
 import { fullName } from '@/lib/names'
 import { useState } from 'react'
+import AppButton from '@/components/AppButton'
+import CreateFundraiserDialog from '@/features/fundraisers/components/CreateFundraiserDialog'
+import {
+  useCreateFundraiser,
+  useFundraisers,
+  useUpdateFundraiser,
+  type Fundraiser,
+  type FundraiserUpdate,
+} from '@/features/fundraisers/api'
+import { type FundraiserCreate } from '@/features/fundraisers/api'
+import FundraiserList from '@/features/fundraisers/components/FundraiserList'
+import SelectChips from '@/components/SelectChips'
+import EditFundraiserDialog from '@/features/fundraisers/components/EditFundraiserDialog'
 
 export function ClassPage() {
   const { classId = '' } = useParams()
@@ -46,6 +58,33 @@ export function ClassPage() {
   const removeMembership = useRemoveMembership(classId)
   const [toReject, setToReject] = useState<ClassMemberWithParent | null>(null)
   const [toRemove, setToRemove] = useState<ClassMemberWithParent | null>(null)
+
+  const [createFundraiserOpen, setCreateFundraiserOpen] = useState(false)
+  const createFundraiser = useCreateFundraiser()
+  const { data: fundraisers = [], isPending: fundraisersPending } =
+    useFundraisers(classId)
+
+  type FundraiserFilterValue = 'all' | 'active' | 'closed'
+
+  const [fundraiserFilter, setFundraiserFilter] =
+    useState<FundraiserFilterValue>('all')
+
+  const [editingFundraiser, setEditingFundraiser] = useState<Fundraiser | null>(
+    null,
+  )
+  const updateFundraiser = useUpdateFundraiser()
+
+  const filteredFundraisers = fundraisers.filter((fundraiser) => {
+    if (fundraiserFilter === 'all') {
+      return true
+    }
+
+    if (fundraiser.is_blocked) {
+      return false
+    }
+
+    return fundraiser.status?.toLowerCase() === fundraiserFilter
+  })
 
   const notify = (message: string, severity: SnackbarSeverity = 'success') =>
     setToast({ message, severity, id: Date.now() })
@@ -96,6 +135,38 @@ export function ClassPage() {
     })
   }
 
+  const handleCreateFundraiser = (payload: FundraiserCreate) => {
+    createFundraiser.mutate(payload, {
+      onSuccess: () => {
+        notify('Fundraiser created successfully')
+        setCreateFundraiserOpen(false)
+      },
+      onError: () => {
+        notify('Could not create fundraiser', 'error')
+      },
+    })
+  }
+
+  const handleUpdateFundraiser = (payload: FundraiserUpdate) => {
+    if (!editingFundraiser) return
+
+    updateFundraiser.mutate(
+      {
+        fundraiserId: editingFundraiser.id,
+        payload,
+      },
+      {
+        onSuccess: () => {
+          notify('Fundraiser updated successfully')
+          setEditingFundraiser(null)
+        },
+        onError: () => {
+          notify('Could not update fundraiser', 'error')
+        },
+      },
+    )
+  }
+
   if (isPending) {
     return <CircularProgress sx={{ m: 4 }} />
   }
@@ -125,13 +196,23 @@ export function ClassPage() {
           {schoolClass.name}
         </Typography>
       </Breadcrumbs>
-
       <PageHeader
         title={`Class ${schoolClass.name}`}
         badge={isTreasurer && <StatusBadge>You are treasurer</StatusBadge>}
         subtitle={[schoolClass.school_name, childrenCount(members.length)]
           .filter(Boolean)
           .join(' · ')}
+        actions={
+          isTreasurer && (
+            <AppButton
+              label="New fundraiser"
+              onClick={() => {
+                createFundraiser.reset()
+                setCreateFundraiserOpen(true)
+              }}
+            />
+          )
+        }
       >
         {!isTreasurer && (
           <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
@@ -149,7 +230,6 @@ export function ClassPage() {
           </Stack>
         )}
       </PageHeader>
-
       {isTreasurer && (
         <Box
           sx={{
@@ -170,7 +250,6 @@ export function ClassPage() {
           />
         </Box>
       )}
-
       {isTreasurer && waiting.length > 0 && (
         <PageSection title="Waiting for approval" count={waiting.length}>
           <WaitingList
@@ -188,7 +267,6 @@ export function ClassPage() {
           />
         </PageSection>
       )}
-
       <PageSection title="Children" count={members.length}>
         <ClassChildrenList
           members={members}
@@ -202,8 +280,30 @@ export function ClassPage() {
         />
       </PageSection>
 
-      <PageSection title="Fundraisers">
-        <EmptyState dashed description="Coming soon." />
+      <PageSection
+        title="Fundraisers"
+        count={filteredFundraisers.length}
+        action={
+          fundraisers.length > 0 && (
+            <SelectChips<FundraiserFilterValue>
+              label="Fundraiser filter"
+              options={[
+                { label: 'All', value: 'all' },
+                { label: 'Active', value: 'active' },
+                { label: 'Closed', value: 'closed' },
+              ]}
+              value={fundraiserFilter}
+              onChange={setFundraiserFilter}
+            />
+          )
+        }
+      >
+        <FundraiserList
+          fundraisers={fundraisers}
+          filteredFundraisers={filteredFundraisers}
+          loading={fundraisersPending}
+          isTreasurer={isTreasurer}
+        />
       </PageSection>
 
       {!isTreasurer && (
@@ -216,7 +316,6 @@ export function ClassPage() {
           }}
         />
       )}
-
       <ConfirmDialog
         open={toReject !== null}
         title={`Reject ${toReject ? fullName(toReject.child) : ''}?`}
@@ -233,7 +332,6 @@ export function ClassPage() {
         onConfirm={reject}
         onClose={() => setToReject(null)}
       />
-
       <ConfirmDialog
         open={toRemove !== null}
         title={`Remove ${toRemove ? fullName(toRemove.child) : ''}?`}
@@ -251,7 +349,6 @@ export function ClassPage() {
         onConfirm={remove}
         onClose={() => setToRemove(null)}
       />
-
       <AppSnackbar
         key={toast?.id}
         open={toast !== null}
@@ -260,6 +357,25 @@ export function ClassPage() {
         variant="standard"
         onClose={() => setToast(null)}
       />
+      <CreateFundraiserDialog
+        open={createFundraiserOpen}
+        classId={classId}
+        onClose={() => setCreateFundraiserOpen(false)}
+        onConfirm={handleCreateFundraiser}
+        loading={createFundraiser.isPending}
+        error={createFundraiser.error}
+      />
+      {editingFundraiser && (
+        <EditFundraiserDialog
+          key={editingFundraiser.id}
+          open
+          fundraiser={editingFundraiser}
+          onClose={() => setEditingFundraiser(null)}
+          onConfirm={handleUpdateFundraiser}
+          loading={updateFundraiser.isPending}
+          error={updateFundraiser.error}
+        />
+      )}
     </Stack>
   )
 }
