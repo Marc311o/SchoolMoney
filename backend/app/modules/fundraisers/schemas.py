@@ -6,7 +6,11 @@ from uuid import UUID
 from pydantic import AliasChoices, AliasPath, Field, StringConstraints, model_validator
 
 from app.common.schemas import NonNegativeMoney, PositiveMoney, SchemaBase
-from app.modules.fundraisers.enums import FundraiserStatus, TreasurerOperationDirection
+from app.modules.fundraisers.enums import (
+    FundraiserChildPaymentStatus,
+    FundraiserStatus,
+    TreasurerOperationDirection,
+)
 
 FundraiserName = Annotated[
     str,
@@ -200,3 +204,36 @@ class FundraiserCloseResult(SchemaBase):
     closed_at: datetime
     refunded_total: NonNegativeMoney
     refund_transactions: int = Field(ge=0)
+
+
+class FundraiserChildPayerRead(SchemaBase):
+    id: UUID
+    first_name: str
+    last_name: str
+
+
+class FundraiserChildPaymentInfoRead(SchemaBase):
+    is_paid: bool
+    payer: FundraiserChildPayerRead | None = None
+    paid_at: datetime | None = None
+
+
+class FundraiserChildItemChildRead(SchemaBase):
+    id: UUID
+    first_name: str
+    last_name: str
+    avatar_url: str | None = None
+
+
+class FundraiserChildItemRead(SchemaBase):
+    child: FundraiserChildItemChildRead
+    is_current_user_child: bool
+    payment_status: FundraiserChildPaymentStatus
+    payment: FundraiserChildPaymentInfoRead
+    refunded_amount: MoneyTotal
+
+
+class FundraiserChildrenListRead(SchemaBase):
+    fundraiser_id: UUID
+    status: FundraiserStatus
+    children: list[FundraiserChildItemRead]
