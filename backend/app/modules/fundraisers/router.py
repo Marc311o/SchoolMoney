@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.fundraisers import service
 from app.modules.fundraisers.schemas import (
+    FundraiserChildrenListRead,
     FundraiserCloseResult,
     FundraiserCreate,
     FundraiserDetailRead,
@@ -124,3 +125,10 @@ def list_treasurer_operations(
     fundraiser_id: UUID, user: CurrentUser, db: DbSession
 ) -> list[TreasurerOperationRead]:
     return service.list_treasurer_operations(db, user, fundraiser_id)
+
+
+@router.get("/{fundraiser_id}/children")
+def list_fundraiser_children(
+    fundraiser_id: UUID, user: CurrentUser, db: DbSession
+) -> FundraiserChildrenListRead:
+    return service.get_fundraiser_children(db, user, fundraiser_id)

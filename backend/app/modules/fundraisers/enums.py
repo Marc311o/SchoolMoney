@@ -10,3 +10,9 @@ class FundraiserStatus(StrEnum):
 class TreasurerOperationDirection(StrEnum):
     WITHDRAWAL = "WITHDRAWAL"
     DEPOSIT = "DEPOSIT"
+
+
+class FundraiserChildPaymentStatus(StrEnum):
+    PAID = "PAID"
+    UNPAID = "UNPAID"
+    REFUNDED = "REFUNDED"
