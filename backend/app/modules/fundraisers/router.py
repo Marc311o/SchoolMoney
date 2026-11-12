@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,6 +17,7 @@ from app.modules.fundraisers.schemas import (
     FundraiserRead,
     FundraiserUpdate,
     InvoiceCreate,
+    InvoiceFileUploadRead,
     InvoiceRead,
     TreasurerDepositCreate,
     TreasurerOperationRead,
@@ -107,6 +108,16 @@ def close_fundraiser(
 
 
 # Invoices
+@router.post("/{fundraiser_id}/invoices/upload", status_code=status.HTTP_201_CREATED)
+async def upload_invoice(
+    fundraiser_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+    file: Annotated[UploadFile, File()],
+) -> InvoiceFileUploadRead:
+    return await service.upload_fundraiser_invoice_file(db, user, fundraiser_id, file)
+
+
 @router.get("/{fundraiser_id}/invoices")
 def list_invoices(fundraiser_id: UUID, user: CurrentUser, db: DbSession) -> list[InvoiceRead]:
     return service.list_invoices(db, user, fundraiser_id)
