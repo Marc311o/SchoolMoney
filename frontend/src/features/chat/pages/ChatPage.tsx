@@ -9,6 +9,8 @@ import type { UserSummary } from '@/features/classes/api'
 import { useClasses } from '@/features/classes/api'
 import {
   canMessageAdmin,
+  chatTabs,
+  useChatContacts,
   useChats,
   useOpenAdminChat,
   useOpenDirectChat,
@@ -17,11 +19,6 @@ import { ChatList } from '@/features/chat/components/ChatList'
 import { Conversation } from '@/features/chat/components/Conversation'
 import { NewMessageDialog } from '@/features/chat/components/NewMessageDialog'
 
-/**
- * /chat            the list (wide screens: with an empty right column)
- * /chat/:chatId    the list and the open conversation; narrow screens show only
- *                  the conversation, with a back button
- */
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>()
   const navigate = useNavigate()
@@ -36,6 +33,8 @@ export function ChatPage() {
   const openDirect = useOpenDirectChat()
   const openAdmin = useOpenAdminChat()
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
+  const [contactQuery, setContactQuery] = useState('')
+  const contacts = useChatContacts(contactQuery)
 
   if (!me) return null
 
@@ -83,7 +82,7 @@ export function ChatPage() {
               isError={chats.isError}
               myId={me.id}
               selectedId={chatId}
-              isTreasurer={isTreasurer}
+              tabs={chatTabs(isTreasurer)}
               onOpen={openChat}
               onNewMessage={() => setIsNewMessageOpen(true)}
               onMessageAdmin={() =>
@@ -118,6 +117,12 @@ export function ChatPage() {
 
       <NewMessageDialog
         open={isNewMessageOpen}
+        title="New message"
+        description="Write to any parent in SchoolMoney. Find them by name."
+        noun="parents"
+        minChars={2}
+        onSearch={setContactQuery}
+        results={contacts}
         onClose={handleCloseNewMessage}
         onSelect={handleSelectContact}
         openingUserId={

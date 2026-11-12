@@ -163,6 +163,20 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
     ):
         others[chat_id] = other
 
+    treasurer_classes: dict[UUID, list[str]] = {}
+    if user.role == UserRole.ADMIN:
+        treasurer_ids = [
+            others[chat.id].id
+            for chat in chats
+            if chat.kind == ChatKind.ADMIN and chat.id in others
+        ]
+        for treasurer_id, name in db.execute(
+            select(SchoolClass.treasurer_id, SchoolClass.name)
+            .where(SchoolClass.treasurer_id.in_(treasurer_ids))
+            .order_by(SchoolClass.name)
+        ):
+            treasurer_classes.setdefault(treasurer_id, []).append(name)
+
     classes = {
         class_id: (name, children, parents)
         for class_id, name, children, parents in db.execute(
@@ -202,6 +216,14 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
             other_user = UserSummaryRead.model_validate(other) if other else None
 
         last_message = last_messages.get(chat.id)
+        blocked = (
+            other_user is not None and other is not None and other.status == UserStatus.BLOCKED
+        )
+        runs = (
+            treasurer_classes.get(other.id, [])
+            if chat.kind == ChatKind.ADMIN and user.role == UserRole.ADMIN and other
+            else None
+        )
         summaries.append(
             ChatRead(
                 id=chat.id,
@@ -209,6 +231,8 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
                 title=title,
                 class_id=chat.class_id,
                 other_user=other_user,
+                other_user_blocked=blocked,
+                treasurer_classes=runs,
                 last_message=last_message,
                 children_count=children_count,
                 parents_count=parents_count,
@@ -361,13 +385,31 @@ def open_admin_chat(db: Session, user: User) -> ChatRead:
             detail="Only class treasurers can message the administrator",
         )
 
-    chat = db.scalar(
+    chat = _admin_chat_of(db, user.id)
+    [summary] = _summaries(db, user, [chat])
+    db.commit()
+    return summary
+
+
+def _admin_chat_of(db: Session, treasurer_id: UUID) -> Chat:
+    """A treasurer has one chat with all administrators, whoever starts it."""
+    return db.scalar(
         select(Chat)
         .join(ChatParticipant, ChatParticipant.chat_id == Chat.id)
-        .where(Chat.kind == ChatKind.ADMIN, ChatParticipant.user_id == user.id)
+        .where(Chat.kind == ChatKind.ADMIN, ChatParticipant.user_id == treasurer_id)
         .limit(1)
-    ) or _create_chat(db, ChatKind.ADMIN, [user.id])
-    [summary] = _summaries(db, user, [chat])
+    ) or _create_chat(db, ChatKind.ADMIN, [treasurer_id])
+
+
+def open_treasurer_chat(db: Session, admin: User, treasurer_id: UUID) -> ChatRead:
+    """An administrator opens the chat with a treasurer: the existing one, or a new one.
+    The same chat the treasurer reaches with "Message the administrator"."""
+    treasurer = db.get(User, treasurer_id)
+    if treasurer is None or treasurer.role != UserRole.PARENT or not is_treasurer(db, treasurer):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Treasurer not found")
+
+    chat = _admin_chat_of(db, treasurer.id)
+    [summary] = _summaries(db, admin, [chat])
     db.commit()
     return summary
 

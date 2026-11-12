@@ -13,19 +13,13 @@ import {
   useTheme,
 } from '@mui/material'
 
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
-import ChildCareRoundedIcon from '@mui/icons-material/ChildCareRounded'
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
-import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded'
-import ChatRoundedIcon from '@mui/icons-material/ChatRounded'
-import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
-import * as React from 'react'
+import type { ReactNode } from 'react'
 
 export interface SidebarItem {
   label: string
   path: string
+  icon: ReactNode
 }
 
 interface SidebarUser {
@@ -34,7 +28,7 @@ interface SidebarUser {
 }
 
 interface SidebarProps {
-  items?: SidebarItem[]
+  items: SidebarItem[]
   activePath: string
   user: SidebarUser
   onNavigate: (path: string) => void
@@ -45,28 +39,8 @@ interface SidebarProps {
 const SIDEBAR_WIDTH = 260
 const SIDEBAR_COMPACT_WIDTH = 76
 
-const defaultItems: SidebarItem[] = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'My children', path: '/children' },
-  { label: 'Classes', path: '/classes' },
-  { label: 'Wallet', path: '/account' },
-  { label: 'Chat', path: '/chat' },
-  { label: 'Report', path: '/reports' },
-  { label: 'Settings', path: '/settings' },
-]
-
-const itemIcons: Record<string, React.ReactNode> = {
-  '/': <HomeRoundedIcon />,
-  '/children': <ChildCareRoundedIcon />,
-  '/classes': <GroupsRoundedIcon />,
-  '/account': <AccountBalanceWalletRoundedIcon />,
-  '/chat': <ChatRoundedIcon />,
-  '/reports': <AssessmentRoundedIcon />,
-  '/settings': <SettingsRoundedIcon />,
-}
-
 export default function Sidebar({
-  items = defaultItems,
+  items,
   activePath,
   user,
   onNavigate,
@@ -201,7 +175,7 @@ export default function Sidebar({
                       color: 'inherit',
                     }}
                   >
-                    {itemIcons[item.path] || <HomeRoundedIcon />}
+                    {item.icon}
                   </ListItemIcon>
                 ) : (
                   <ListItemText primary={item.label} />
