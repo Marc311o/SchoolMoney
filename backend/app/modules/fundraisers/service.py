@@ -767,8 +767,10 @@ def get_fundraiser_children(
         is_paid = False
         payer_info = None
         paid_at = None
+        payment_id = None
 
         if latest_payment is not None:
+            payment_id = latest_payment.id
             paid_at = latest_payment.paid_at
             if latest_payment.payer:
                 payer_info = FundraiserChildPayerRead(
@@ -801,7 +803,11 @@ def get_fundraiser_children(
                 is_current_user_child=child.parent_id == user.id,
                 payment_status=payment_status,
                 payment=FundraiserChildPaymentInfoRead(
+                    id=payment_id,
                     is_paid=is_paid,
+                    amount=(
+                        latest_payment.transaction.amount if latest_payment is not None else None
+                    ),
                     payer=payer_info,
                     paid_at=paid_at,
                 ),

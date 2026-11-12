@@ -103,9 +103,50 @@ export type TreasurerDepositCreate = {
   description?: string | null
 }
 
+export type FundraiserCloseResult = {
+  fundraiser_id: string
+  status: 'CLOSED'
+  closed_at: string
+  refunded_total: string
+  refund_transactions: number
+}
+
+export type FundraiserChildPaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED'
+
+export type FundraiserChildItem = {
+  child: {
+    id: string
+    first_name: string
+    last_name: string
+    avatar_url: string | null
+  }
+  is_current_user_child: boolean
+  payment_status: FundraiserChildPaymentStatus
+  payment: {
+    id: string | null
+    is_paid: boolean
+    amount: string | null
+    payer: {
+      id: string
+      first_name: string
+      last_name: string
+    } | null
+    paid_at: string | null
+  }
+  refunded_amount: string
+}
+
+export type FundraiserChildrenResponse = {
+  fundraiser_id: string
+  status: FundraiserStatus
+  children: FundraiserChildItem[]
+}
+
 export const fundraiserKeys = {
   all: ['fundraisers'] as const,
   list: (classId: string) => [...fundraiserKeys.all, 'list', classId] as const,
+  children: (fundraiserId: string) =>
+    [...fundraiserKeys.all, 'children', fundraiserId] as const,
 }
 
 export function useFundraisers(classId: string) {
@@ -183,22 +224,28 @@ export function useCreateFundraiserPayment(fundraiserId: string) {
         payload,
       ),
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
-      })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: fundraiserKeys.children(fundraiserId),
+        }),
 
-      queryClient.invalidateQueries({
-        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
-      })
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+        }),
 
-      queryClient.invalidateQueries({
-        queryKey: walletKeys.wallet(),
-      })
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+        }),
 
-      queryClient.invalidateQueries({
-        queryKey: walletKeys.transactions(),
-      })
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.wallet(),
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.transactions(),
+        }),
+      ])
     },
   })
 }
@@ -212,22 +259,28 @@ export function useRefundFundraiserPayment(fundraiserId: string) {
         `/fundraisers/${fundraiserId}/payments/${paymentId}/refund`,
       ),
 
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
-      })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: fundraiserKeys.children(fundraiserId),
+        }),
 
-      void queryClient.invalidateQueries({
-        queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
-      })
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+        }),
 
-      void queryClient.invalidateQueries({
-        queryKey: walletKeys.wallet(),
-      })
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+        }),
 
-      void queryClient.invalidateQueries({
-        queryKey: walletKeys.transactions(),
-      })
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.wallet(),
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.transactions(),
+        }),
+      ])
     },
   })
 }
@@ -297,6 +350,54 @@ export function useTreasurerOperations(fundraiserId: string) {
     queryKey: [...fundraiserKeys.all, 'operations', fundraiserId],
     queryFn: () =>
       api.get<TreasurerOperation[]>(`/fundraisers/${fundraiserId}/operations`),
+    enabled: !!fundraiserId,
+  })
+}
+
+export function useCloseFundraiser(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<FundraiserCloseResult, ApiError>({
+    mutationFn: () =>
+      api.post<FundraiserCloseResult>(`/fundraisers/${fundraiserId}/close`),
+
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: fundraiserKeys.children(fundraiserId),
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'detail', fundraiserId],
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'payments', fundraiserId],
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: [...fundraiserKeys.all, 'operations', fundraiserId],
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.wallet(),
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: walletKeys.transactions(),
+        }),
+      ])
+    },
+  })
+}
+
+export function useFundraiserChildren(fundraiserId: string) {
+  return useQuery<FundraiserChildrenResponse, ApiError>({
+    queryKey: fundraiserKeys.children(fundraiserId),
+    queryFn: () =>
+      api.get<FundraiserChildrenResponse>(
+        `/fundraisers/${fundraiserId}/children`,
+      ),
     enabled: !!fundraiserId,
   })
 }
