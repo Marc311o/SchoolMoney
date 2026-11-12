@@ -5,10 +5,11 @@ from typing import Literal
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.storage import upload_invoice_file
 from app.modules.accounts.enums import AccountType, TransactionType
 from app.modules.accounts.models import Account, Transaction
 from app.modules.accounts.service import get_wallet, move_money
@@ -42,6 +43,7 @@ from app.modules.fundraisers.schemas import (
     FundraiserRead,
     FundraiserUpdate,
     InvoiceCreate,
+    InvoiceFileUploadRead,
     InvoiceRead,
     TreasurerDepositCreate,
     TreasurerOperationRead,
@@ -655,6 +657,19 @@ def list_invoices(
         .order_by(Invoice.created_at.desc(), Invoice.id.desc())
     )
     return [InvoiceRead.model_validate(inv) for inv in invoices]
+
+
+async def upload_fundraiser_invoice_file(
+    db: Session,
+    user: User,
+    fundraiser_id: UUID,
+    file: UploadFile,
+) -> InvoiceFileUploadRead:
+    fundraiser = _get_fundraiser(db, user, fundraiser_id, treasurer_only=True)
+    _require_editable(fundraiser)
+
+    file_url = await upload_invoice_file(str(fundraiser.id), file)
+    return InvoiceFileUploadRead(file_url=file_url)
 
 
 def create_invoice(

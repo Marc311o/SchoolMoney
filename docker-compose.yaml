@@ -20,6 +20,101 @@ services:
       timeout: 5s
       retries: 10
 
+  garage:
+    image: dxflrs/garage:v2.0.0
+    container_name: sm-garage
+    restart: unless-stopped
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    ports:
+      - "3900:3900"
+      - "3902:3902"
+    healthcheck:
+      test: ["CMD", "/garage", "-c", "/etc/garage.toml", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  garage-init:
+    image: python:3.13-alpine
+    container_name: sm-garage-init
+    depends_on:
+      garage:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-GK000000000000000000000001}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-schoolmoney}
+      GARAGE_ADMIN_TOKEN: supersecretadmintoken123
+    command:
+      - python
+      - -c
+      - |
+        import os, urllib.request, urllib.error, json
+
+        BASE = "http://garage:3903/v2"
+        HEADERS = {"Authorization": f"Bearer {os.environ['GARAGE_ADMIN_TOKEN']}", "Content-Type": "application/json"}
+
+        def req(method, path, body=None):
+            data = json.dumps(body).encode() if body is not None else None
+            r = urllib.request.Request(f"{BASE}{path}", data=data, headers=HEADERS, method=method)
+            try:
+                with urllib.request.urlopen(r) as resp:
+                    raw = resp.read().decode()
+                    return json.loads(raw) if raw else {}
+            except urllib.error.HTTPError as e:
+                if e.code in (400, 409):
+                    return {}
+                raise
+
+        status = req("GET", "/GetClusterStatus")
+        node_id = status["nodes"][0]["id"]
+
+        layout = req("GET", "/GetClusterLayout")
+        if not layout.get("roles"):
+            req("POST", "/UpdateClusterLayout", {"roles": [{"id": node_id, "zone": "dc1", "capacity": 1073741824, "tags": []}]})
+            ver = req("GET", "/GetClusterLayout")["version"] + 1
+            req("POST", "/ApplyClusterLayout", {"version": ver})
+
+        key_id = os.environ["S3_ACCESS_KEY_ID"]
+        secret_key = os.environ["S3_SECRET_ACCESS_KEY"]
+        bucket_name = os.environ["S3_BUCKET_NAME"]
+
+        req("POST", "/ImportKey", {"accessKeyId": key_id, "secretAccessKey": secret_key, "name": "app-key"})
+        bucket = req("POST", "/CreateBucket", {"globalAlias": bucket_name})
+        if not bucket:
+            bucket = req("GET", f"/GetBucketInfo?globalAlias={bucket_name}")
+        bucket_id = bucket["id"]
+
+        req("POST", "/AllowBucketKey", {
+            "bucketId": bucket_id,
+            "accessKeyId": key_id,
+            "permissions": {"read": True, "write": True, "owner": True},
+        })
+        req("POST", "/UpdateBucket", {"id": bucket_id, "websiteAccess": {"enabled": True, "indexDocument": "index.html"}})
+        print("Garage v2 initialized successfully!")
+
+  garage-webui:
+    image: khairul169/garage-webui:latest
+    container_name: sm-garage-webui
+    restart: unless-stopped
+    depends_on:
+      garage-init:
+        condition: service_completed_successfully
+    ports:
+      - "3909:3909"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+    environment:
+      API_BASE_URL: "http://garage:3903"
+      API_ADMIN_KEY: "supersecretadmintoken123"
+      S3_ENDPOINT_URL: "http://garage:3900"
+      S3_REGION: ${S3_REGION:-garage}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-GK000000000000000000000001}
+      S3_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+
   backend:
     container_name: sm-backend
     build:
@@ -33,6 +128,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -68,3 +165,5 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  garage_meta:
+  garage_data:
