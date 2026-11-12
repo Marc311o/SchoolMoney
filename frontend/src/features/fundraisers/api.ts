@@ -19,7 +19,6 @@ export type FundraiserUpdate = {
   name?: string
   description?: string | null
   logo_url?: string | null
-  required_amount_per_child?: string
   start_date?: string
   end_date?: string
 }
