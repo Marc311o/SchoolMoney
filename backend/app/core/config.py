@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "db"
     POSTGRES_PORT: int = 5432
 
+    S3_ENDPOINT_URL: str
+    S3_PUBLIC_BASE_URL: str
+    S3_ACCESS_KEY_ID: str
+    S3_SECRET_ACCESS_KEY: str
+    S3_BUCKET_NAME: str
+    S3_REGION: str = "garage"
+
     @property
     def DATABASE_URL(self) -> URL:
         return URL.create(
