@@ -173,6 +173,10 @@ class InvoiceRead(SchemaBase):
     created_at: datetime
 
 
+class InvoiceFileUploadRead(SchemaBase):
+    file_url: str
+
+
 class ChildFundraiserProgressRead(SchemaBase):
     child_id: UUID
     required_amount_per_child: PositiveMoney
