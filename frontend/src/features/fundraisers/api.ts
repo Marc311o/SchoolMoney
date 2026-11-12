@@ -141,11 +141,33 @@ export type FundraiserChildrenResponse = {
   children: FundraiserChildItem[]
 }
 
+export type Invoice = {
+  id: string
+  fundraiser_id: string
+  added_by: string
+  title: string
+  amount: string | null
+  file_url: string
+  created_at: string
+}
+
+export type InvoiceCreate = {
+  title: string
+  amount?: string | null
+  file_url: string
+}
+
+export type InvoiceFileUploadRead = {
+  file_url: string
+}
+
 export const fundraiserKeys = {
   all: ['fundraisers'] as const,
   list: (classId: string) => [...fundraiserKeys.all, 'list', classId] as const,
   children: (fundraiserId: string) =>
     [...fundraiserKeys.all, 'children', fundraiserId] as const,
+  invoices: (fundraiserId: string) =>
+    [...fundraiserKeys.all, 'invoices', fundraiserId] as const,
 }
 
 export function useFundraisers(classId: string) {
@@ -397,6 +419,49 @@ export function useFundraiserChildren(fundraiserId: string) {
       api.get<FundraiserChildrenResponse>(
         `/fundraisers/${fundraiserId}/children`,
       ),
+    enabled: !!fundraiserId,
+  })
+}
+
+export async function uploadFundraiserInvoiceFile(
+  fundraiserId: string,
+  file: File,
+): Promise<InvoiceFileUploadRead> {
+  const formData = new FormData()
+
+  formData.append('file', file)
+
+  return api.post<InvoiceFileUploadRead>(
+    `/fundraisers/${fundraiserId}/invoices/upload`,
+    formData,
+  )
+}
+
+export function useCreateFundraiserInvoice(fundraiserId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<Invoice, ApiError, InvoiceCreate>({
+    mutationFn: (payload) =>
+      api.post<Invoice>(`/fundraisers/${fundraiserId}/invoices`, payload),
+
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: fundraiserKeys.invoices(fundraiserId),
+      })
+    },
+  })
+}
+
+export function useUploadFundraiserInvoiceFile(fundraiserId: string) {
+  return useMutation<InvoiceFileUploadRead, ApiError, File>({
+    mutationFn: (file) => uploadFundraiserInvoiceFile(fundraiserId, file),
+  })
+}
+
+export function useFundraiserInvoices(fundraiserId: string) {
+  return useQuery<Invoice[], ApiError>({
+    queryKey: fundraiserKeys.invoices(fundraiserId),
+    queryFn: () => api.get<Invoice[]>(`/fundraisers/${fundraiserId}/invoices`),
     enabled: !!fundraiserId,
   })
 }

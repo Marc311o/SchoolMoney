@@ -23,6 +23,8 @@ import { useWallet } from '@/features/wallet/api'
 
 import WithdrawFundraiserDialog from '@/features/fundraisers/components/WithdrawFundraiserDialog'
 import DepositFundraiserDialog from '@/features/fundraisers/components/DepositFundraiserDialog'
+import AddInvoiceDialog from '@/features/fundraisers/components/AddInvoiceDialog'
+import FundraiserInvoices from '@/features/fundraisers/components/FundraiserInvoices'
 
 import {
   useFundraiser,
@@ -35,6 +37,9 @@ import {
   useTreasurerOperations,
   useCloseFundraiser,
   useFundraiserChildren,
+  useUploadFundraiserInvoiceFile,
+  useCreateFundraiserInvoice,
+  useFundraiserInvoices,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
@@ -86,6 +91,9 @@ export default function FundraiserPage() {
     (operation) => operation.direction === 'DEPOSIT',
   )
 
+  const { data: invoices = [], isPending: invoicesPending } =
+    useFundraiserInvoices(fundraiserId)
+
   // ---------------------------------------------------------------------------
   // Mutations
   // ---------------------------------------------------------------------------
@@ -101,6 +109,10 @@ export default function FundraiserPage() {
   const createDeposit = useCreateTreasurerDeposit(fundraiserId)
 
   const closeFundraiser = useCloseFundraiser(fundraiserId)
+
+  const uploadInvoice = useUploadFundraiserInvoiceFile(fundraiserId)
+
+  const createInvoice = useCreateFundraiserInvoice(fundraiserId)
 
   // ---------------------------------------------------------------------------
   // State
@@ -125,6 +137,8 @@ export default function FundraiserPage() {
   const [depositing, setDepositing] = useState(false)
 
   const [closing, setClosing] = useState(false)
+
+  const [addingInvoice, setAddingInvoice] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -259,6 +273,34 @@ export default function FundraiserPage() {
     })
   }
 
+  const handleAddInvoice = async (payload: {
+    title: string
+    amount: string | null
+    file: File
+  }) => {
+    try {
+      // 1. Upload file
+      const uploadedFile = await uploadInvoice.mutateAsync(payload.file)
+
+      // 2. Create invoice using returned file_url
+      await createInvoice.mutateAsync({
+        title: payload.title,
+        amount: payload.amount,
+        file_url: uploadedFile.file_url,
+      })
+
+      notify('Invoice added successfully')
+      setAddingInvoice(false)
+    } catch (invoiceError) {
+      const message =
+        invoiceError instanceof Error
+          ? invoiceError.message
+          : 'Could not add invoice'
+
+      notify(message, 'error')
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Loading and error states
   // ---------------------------------------------------------------------------
@@ -378,7 +420,9 @@ export default function FundraiserPage() {
             setDepositing(true)
           }}
           onAddInvoice={() => {
-            // TODO: implement add invoice
+            uploadInvoice.reset()
+            createInvoice.reset()
+            setAddingInvoice(true)
           }}
           onCloseAndRefund={() => {
             closeFundraiser.reset()
@@ -458,6 +502,8 @@ export default function FundraiserPage() {
           />
 
           <FundraiserDeposits deposits={deposits} loading={operationsPending} />
+
+          <FundraiserInvoices invoices={invoices} loading={invoicesPending} />
         </Stack>
       </Box>
 
@@ -523,6 +569,17 @@ export default function FundraiserPage() {
         loading={createDeposit.isPending}
         onClose={() => setDepositing(false)}
         onConfirm={handleTreasurerDeposit}
+      />
+
+      {/* Treasurer - Add invoice dialog */}
+      <AddInvoiceDialog
+        open={addingInvoice}
+        loading={uploadInvoice.isPending || createInvoice.isPending}
+        error={
+          uploadInvoice.error?.message ?? createInvoice.error?.message ?? null
+        }
+        onClose={() => setAddingInvoice(false)}
+        onConfirm={handleAddInvoice}
       />
 
       {/* Close fundraiser dialog */}
