@@ -18,7 +18,6 @@ import StatusBadge from '@/components/StatusBadge'
 import AppAvatar from '@/components/AppAvatar'
 import FundraiserTreasurerActions from '@/features/fundraisers/components/FundraiserTreasurerActions'
 
-import { useCurrentUser } from '@/features/auth/api'
 import { useClass } from '@/features/classes/api'
 import { useWallet } from '@/features/wallet/api'
 
@@ -27,7 +26,6 @@ import DepositFundraiserDialog from '@/features/fundraisers/components/DepositFu
 
 import {
   useFundraiser,
-  useFundraiserPayments,
   useUpdateFundraiser,
   useCreateFundraiserPayment,
   useRefundFundraiserPayment,
@@ -36,6 +34,7 @@ import {
   useCreateTreasurerDeposit,
   useTreasurerOperations,
   useCloseFundraiser,
+  useFundraiserChildren,
 } from '@/features/fundraisers/api'
 
 import FundraiserProgress from '@/features/fundraisers/components/FundraiserProgress'
@@ -47,9 +46,10 @@ import PayFundraiserDialog from '@/features/fundraisers/components/PayFundraiser
 import RefundFundraiserDialog from '@/features/fundraisers/components/RefundFundraiserDialog'
 
 import { fullName } from '@/lib/names'
-import FundraiserWithdrawals from '@/features/fundraisers/components/FundraiserWithdrawals.tsx'
-import FundraiserDeposits from '@/features/fundraisers/components/FundraiserDeposits.tsx'
-import CloseFundraiserDialog from '@/features/fundraisers/components/CloseFundraiserDialog.tsx'
+
+import FundraiserWithdrawals from '@/features/fundraisers/components/FundraiserWithdrawals'
+import FundraiserDeposits from '@/features/fundraisers/components/FundraiserDeposits'
+import CloseFundraiserDialog from '@/features/fundraisers/components/CloseFundraiserDialog'
 
 export default function FundraiserPage() {
   const { fundraiserId = '' } = useParams()
@@ -60,16 +60,20 @@ export default function FundraiserPage() {
 
   const { data: fundraiser, isPending, error } = useFundraiser(fundraiserId)
 
-  const { data: me } = useCurrentUser()
-
   const { data: wallet, isPending: walletPending } = useWallet()
 
   const { data: schoolClass, isPending: classPending } = useClass(
     fundraiser?.class_id ?? '',
   )
 
-  const { data: payments = [], isPending: paymentsPending } =
-    useFundraiserPayments(fundraiserId)
+  // Children and their payment information come from one endpoint.
+  const { data: fundraiserChildren, isPending: childrenPending } =
+    useFundraiserChildren(fundraiserId)
+
+  const children = fundraiserChildren?.children ?? []
+
+  // Only children belonging to the current user.
+  const myChildren = children.filter((item) => item.is_current_user_child)
 
   const { data: operations = [], isPending: operationsPending } =
     useTreasurerOperations(fundraiserId)
@@ -283,12 +287,8 @@ export default function FundraiserPage() {
   // Derived data
   // ---------------------------------------------------------------------------
 
-  const allChildren =
-    schoolClass?.children.filter((member) => member.status === 'ACTIVE') ?? []
-
-  const myChildren = allChildren.filter((member) => member.parent.id === me?.id)
-
   const isTreasurer = schoolClass?.my_role === 'TREASURER'
+
   const isBlocked = fundraiser.is_blocked
 
   const canEditFundraiser =
@@ -296,17 +296,15 @@ export default function FundraiserPage() {
 
   const actionsEnabled = fundraiser.status === 'ACTIVE' && !isBlocked
 
-  const payingChild = allChildren.find(
-    (member) => member.child.id === payingChildId,
+  // Find the selected child directly in the children endpoint response.
+  const payingChild = children.find((item) => item.child.id === payingChildId)
+
+  // Find the payment and its child using the same endpoint response.
+  const withdrawingChild = children.find(
+    (item) => item.payment.id === withdrawingPaymentId,
   )
 
-  const withdrawingPayment = payments.find(
-    (payment) => payment.id === withdrawingPaymentId,
-  )
-
-  const withdrawingChild = allChildren.find(
-    (member) => member.child.id === withdrawingPayment?.child_id,
-  )
+  const withdrawingPayment = withdrawingChild?.payment
 
   // ---------------------------------------------------------------------------
   // Render
@@ -375,12 +373,10 @@ export default function FundraiserPage() {
             createWithdrawal.reset()
             setWithdrawing(true)
           }}
-
           onDepositBack={() => {
             createDeposit.reset()
             setDepositing(true)
           }}
-
           onAddInvoice={() => {
             // TODO: implement add invoice
           }}
@@ -416,9 +412,8 @@ export default function FundraiserPage() {
             }
           >
             <FundraiserChildren
-              members={myChildren}
-              childrenProgress={fundraiser.children}
-              payments={payments}
+              items={myChildren}
+              loading={childrenPending}
               actionsEnabled={actionsEnabled}
               onPay={(childId) => {
                 createPayment.reset()
@@ -433,11 +428,10 @@ export default function FundraiserPage() {
 
           <PageSection title="Payments">
             <FundraiserPayments
-              payments={payments}
-              members={schoolClass?.children ?? []}
-              childrenProgress={fundraiser.children}
-              loading={paymentsPending || classPending}
+              items={children}
+              loading={childrenPending}
               actionsEnabled={actionsEnabled}
+              isClosed={fundraiser.status === 'CLOSED'}
               onPay={(childId) => {
                 createPayment.reset()
                 setPayingChildId(childId)
@@ -497,12 +491,12 @@ export default function FundraiserPage() {
         />
       )}
 
-      {/* Withdraw dialog */}
-      {withdrawingPayment && withdrawingChild && (
+      {/* Withdraw payment dialog */}
+      {withdrawingPaymentId && withdrawingPayment && withdrawingChild && (
         <RefundFundraiserDialog
           open
           childName={fullName(withdrawingChild.child)}
-          amount={withdrawingPayment.amount}
+          amount={withdrawingPayment.amount ?? '0'}
           loading={refundPayment.isPending}
           onClose={() => setWithdrawingPaymentId(null)}
           onConfirm={handleWithdraw}
@@ -519,6 +513,7 @@ export default function FundraiserPage() {
         onClose={() => setWithdrawing(false)}
         onConfirm={handleTreasurerWithdrawal}
       />
+
       {/* Treasurer - Deposit dialog */}
       <DepositFundraiserDialog
         open={depositing}

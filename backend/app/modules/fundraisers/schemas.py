@@ -213,7 +213,9 @@ class FundraiserChildPayerRead(SchemaBase):
 
 
 class FundraiserChildPaymentInfoRead(SchemaBase):
+    id: UUID | None = None
     is_paid: bool
+    amount: MoneyTotal | None = None
     payer: FundraiserChildPayerRead | None = None
     paid_at: datetime | None = None
 

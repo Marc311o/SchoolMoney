@@ -20,35 +20,23 @@ import EmptyState from '@/components/EmptyState'
 import StatusBadge from '@/components/StatusBadge'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
 import SelectChips from '@/components/SelectChips'
+
 import { formatMoney } from '@/lib/money'
-
-import {
-  type FundraiserPayment,
-  type FundraiserChildProgress,
-} from '@/features/fundraisers/api'
-
-import { type ClassMemberWithParent } from '@/features/classes/api'
-
 import { fullName, shortName } from '@/lib/names'
 
+import type { FundraiserChildItem } from '@/features/fundraisers/api'
+
 interface FundraiserPaymentsProps {
-  payments: FundraiserPayment[]
-  members: ClassMemberWithParent[]
-  childrenProgress: FundraiserChildProgress[]
+  items: FundraiserChildItem[]
   loading: boolean
   actionsEnabled: boolean
+  isClosed: boolean
   onPay: (childId: string) => void
 }
 
-type PaymentFilter = 'all' | 'paid' | 'unpaid'
+type PaymentFilter = 'all' | 'paid' | 'unpaid' | 'refunded'
 
-type PaymentRow = {
-  id: string
-  child: ClassMemberWithParent['child']
-  payment: FundraiserPayment | null
-}
-
-function formatDate(value: string) {
+function formatDate(value: string | null) {
   if (!value) return '—'
 
   const date = new Date(value)
@@ -62,11 +50,10 @@ function formatDate(value: string) {
 }
 
 export default function FundraiserPayments({
-  payments,
-  members,
-  childrenProgress,
+  items,
   loading,
   actionsEnabled,
+  isClosed,
   onPay,
 }: FundraiserPaymentsProps) {
   const FUNDRAISER_CHILDREN_LIMIT = 5
@@ -81,7 +68,7 @@ export default function FundraiserPayments({
     return <CircularProgress />
   }
 
-  if (childrenProgress.length === 0) {
+  if (items.length === 0) {
     return (
       <EmptyState
         dashed
@@ -90,50 +77,27 @@ export default function FundraiserPayments({
     )
   }
 
-  const rows = childrenProgress.flatMap<PaymentRow>((progress) => {
-    const member = members.find((item) => item.child.id === progress.child_id)
+  const sortedRows = [...items].sort((a, b) => {
+    const aPaid = a.payment_status === 'PAID'
+    const bPaid = b.payment_status === 'PAID'
 
-    if (!member) return []
-
-    const childPayments = payments
-      .filter((payment) => payment.child_id === progress.child_id)
-      .sort(
-        (a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime(),
-      )
-
-    // newest record
-    const activePayment = childPayments.find(
-      (payment) => payment.refunded_at === null,
-    )
-
-    return [
-      {
-        id: progress.child_id,
-        child: member.child,
-        payment: activePayment ?? null,
-      },
-    ]
-  })
-
-  const sortedRows = [...rows].sort((a, b) => {
-    if (!a.payment && !b.payment) {
+    if (!aPaid && !bPaid) {
       return fullName(a.child).localeCompare(fullName(b.child))
     }
 
-    if (!a.payment) return 1
-    if (!b.payment) return -1
+    if (!aPaid) return 1
+    if (!bPaid) return -1
 
     return (
-      new Date(b.payment.paid_at).getTime() -
-      new Date(a.payment.paid_at).getTime()
+      new Date(b.payment.paid_at ?? 0).getTime() -
+      new Date(a.payment.paid_at ?? 0).getTime()
     )
   })
 
-  const filteredRows = sortedRows.filter(({ payment }) => {
-    const isPaid = payment !== null && payment.refunded_at === null
-
-    if (filter === 'paid') return isPaid
-    if (filter === 'unpaid') return !isPaid
+  const filteredRows = sortedRows.filter((item) => {
+    if (filter === 'paid') return item.payment_status === 'PAID'
+    if (filter === 'unpaid') return item.payment_status === 'UNPAID'
+    if (filter === 'refunded') return item.payment_status === 'REFUNDED'
 
     return true
   })
@@ -152,6 +116,9 @@ export default function FundraiserPayments({
               { label: 'Show all', value: 'all' },
               { label: 'Only paid', value: 'paid' },
               { label: 'Only unpaid', value: 'unpaid' },
+              ...(isClosed
+                ? [{ label: 'Only refunded', value: 'refunded' as const }]
+                : []),
             ]}
             value={filter}
             onChange={(value) => {
@@ -187,24 +154,27 @@ export default function FundraiserPayments({
               >
                 <TableCell>Child</TableCell>
                 <TableCell>Paid by</TableCell>
+
                 <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                   Date
                 </TableCell>
+
                 <TableCell align="right">Amount</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {visibleRows.map(({ id, child, payment }) => {
-                const payer = payment
-                  ? members.find((item) => item.parent.id === payment.payer_id)
-                  : null
+              {visibleRows.map((item) => {
+                const { child, payment } = item
 
-                const refunded = payment?.refunded_at != null
+                const isPaid = item.payment_status === 'PAID'
+                const isRefunded = item.payment_status === 'REFUNDED'
+
+                const payer = payment.payer
 
                 return (
                   <TableRow
-                    key={id}
+                    key={child.id}
                     sx={{
                       backgroundColor: 'transparent',
                       '& td': {
@@ -219,27 +189,29 @@ export default function FundraiserPayments({
                     <TableCell>{fullName(child)}</TableCell>
 
                     <TableCell>
-                      {!payment || refunded ? (
-                        <StatusBadge tone="warning">Unpaid</StatusBadge>
-                      ) : payer ? (
+                      {isPaid && payer ? (
                         compact ? (
-                          shortName(payer.parent)
+                          shortName(payer)
                         ) : (
-                          fullName(payer.parent)
+                          fullName(payer)
                         )
+                      ) : isRefunded ? (
+                        <StatusBadge tone="warning">Refunded</StatusBadge>
                       ) : (
-                        'Unknown parent'
+                        <StatusBadge tone="warning">Unpaid</StatusBadge>
                       )}
                     </TableCell>
 
                     <TableCell
-                      sx={{ display: { xs: 'none', md: 'table-cell' } }}
+                      sx={{
+                        display: { xs: 'none', md: 'table-cell' },
+                      }}
                     >
-                      {payment && !refunded ? formatDate(payment.paid_at) : ''}
+                      {isPaid ? formatDate(payment.paid_at) : ''}
                     </TableCell>
 
                     <TableCell align="right">
-                      {payment && !refunded ? (
+                      {isPaid ? (
                         <Typography
                           sx={{
                             fontWeight: 600,
@@ -248,8 +220,10 @@ export default function FundraiserPayments({
                             fontVariantNumeric: 'tabular-nums',
                           }}
                         >
-                          {formatMoney(payment.amount)}
+                          {formatMoney(payment.amount ?? '0')}
                         </Typography>
+                      ) : isRefunded ? (
+                        '—'
                       ) : actionsEnabled ? (
                         <AppButtonOutlined
                           label="Pay for"
