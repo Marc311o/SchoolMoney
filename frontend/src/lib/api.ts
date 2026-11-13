@@ -22,13 +22,19 @@ export class ApiError extends Error {
 
 function send(path: string, init?: RequestInit): Promise<Response> {
   const token = tokenStorage.getAccess()
+  const headers = new Headers(init?.headers)
+
+  if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
   return fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
+    headers,
   })
 }
 
@@ -38,8 +44,12 @@ async function refreshTokens(): Promise<boolean> {
 
   const response = await fetch(`${BASE_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      refresh_token: refreshToken,
+    }),
   })
   if (!response.ok) return false
 
@@ -85,13 +95,32 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+    request<T>(path, {
+      method: 'POST',
+      body:
+        body instanceof FormData
+          ? body
+          : body !== undefined
+            ? JSON.stringify(body)
+            : undefined,
+    }),
+
   patch: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    request<T>(path, {
+      method: 'PATCH',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
+
+  delete: <T>(path: string) =>
+    request<T>(path, {
+      method: 'DELETE',
+    }),
 }
 
-type ValidationIssue = { loc: (string | number)[]; msg: string }
+type ValidationIssue = {
+  loc: (string | number)[]
+  msg: string
+}
 
 /** FastAPI 422 → { field: message }, e.g. { password: "String should have at least 8 characters" } */
 export function getFieldErrors(error: unknown): Record<string, string> {

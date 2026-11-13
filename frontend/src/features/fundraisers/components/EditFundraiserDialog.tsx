@@ -32,7 +32,6 @@ interface EditFundraiserDialogProps {
 type FundraiserErrors = {
   name?: string
   description?: string
-  required_amount_per_child?: string
   start_date?: string
   end_date?: string
   general?: string
@@ -56,22 +55,6 @@ function serverErrors(error: ApiError): FundraiserErrors {
   return { general: 'Could not update fundraiser. Please try again.' }
 }
 
-function sanitizeAmount(value: string): string {
-  let sanitized = value.replace(/[^\d.]/g, '')
-  const parts = sanitized.split('.')
-
-  if (parts.length > 2) {
-    sanitized = `${parts[0]}.${parts.slice(1).join('')}`
-  }
-
-  let [integer, decimal] = sanitized.split('.')
-  integer = integer.replace(/^0+(?=\d)/, '')
-
-  if (integer === '') integer = '0'
-
-  return decimal === undefined ? integer : `${integer}.${decimal.slice(0, 2)}`
-}
-
 export default function EditFundraiserDialog({
   open,
   fundraiser,
@@ -82,26 +65,14 @@ export default function EditFundraiserDialog({
 }: EditFundraiserDialogProps) {
   const [name, setName] = useState(fundraiser.name)
   const [description, setDescription] = useState(fundraiser.description ?? '')
-  const [amount, setAmount] = useState(fundraiser.required_amount_per_child)
   const [startDate, setStartDate] = useState(fundraiser.start_date)
   const [endDate, setEndDate] = useState(fundraiser.end_date)
   const [submitted, setSubmitted] = useState(false)
 
   const apiErrors = error ? serverErrors(error) : {}
 
-  const amountNumber = Number(amount.replace(',', '.'))
-
   const nameError =
     submitted && !name.trim() ? 'Fundraiser name is required.' : apiErrors.name
-
-  const amountError =
-    submitted &&
-    (!amount.trim() ||
-      !Number.isFinite(amountNumber) ||
-      amountNumber <= 0 ||
-      !/^\d+(\.\d{1,2})?$/.test(amount.replace(',', '.')))
-      ? 'Enter a valid amount greater than zero.'
-      : apiErrors.required_amount_per_child
 
   const startDateError =
     submitted && !startDate ? 'Start date is required.' : apiErrors.start_date
@@ -116,23 +87,13 @@ export default function EditFundraiserDialog({
   const handleConfirm = () => {
     setSubmitted(true)
 
-    if (
-      !name.trim() ||
-      !amount.trim() ||
-      !Number.isFinite(amountNumber) ||
-      amountNumber <= 0 ||
-      !/^\d+(\.\d{1,2})?$/.test(amount.replace(',', '.')) ||
-      !startDate ||
-      !endDate ||
-      endDate < startDate
-    ) {
+    if (!name.trim() || !startDate || !endDate || endDate < startDate) {
       return
     }
 
     onConfirm({
       name: name.trim(),
       description: description.trim() || null,
-      required_amount_per_child: amountNumber.toFixed(2),
       start_date: startDate,
       end_date: endDate,
     })
@@ -161,15 +122,6 @@ export default function EditFundraiserDialog({
             label="Description (optional)"
             value={description}
             onChange={setDescription}
-            disabled={loading}
-          />
-
-          <TextInput
-            label="Required amount per child"
-            value={amount}
-            onChange={(value) => setAmount(sanitizeAmount(value))}
-            error={!!amountError}
-            errorText={amountError}
             disabled={loading}
           />
 
