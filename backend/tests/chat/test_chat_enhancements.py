@@ -1,9 +1,11 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.modules.chat import router as chat_router
 from app.modules.chat.models import Message
 from app.modules.classrooms.enums import MembershipStatus
 from tests.chat.helpers import list_chats, messages, open_direct, person, send
@@ -172,7 +174,7 @@ def test_system_notifications_posted_on_member_join_and_fundraiser_lifecycle(
 
     # 1. Approving join request posts system message
     approve_resp = client.patch(
-        f"/api/classes/{school_class.id}/memberships/{membership.id}",
+        f"/api/classes/{school_class.id}/members/{membership.id}",
         json={"status": "ACTIVE"},
         headers=treasurer.headers,
     )
@@ -221,7 +223,11 @@ def test_websocket_endpoint_authentication_and_live_messages(
 
     marek_token = marek.headers["Authorization"].split(" ", 1)[1]
 
-    with client.websocket_connect(f"/api/chats/ws?token={marek_token}") as ws:
+    with (
+        patch.object(chat_router, "SessionLocal", return_value=db),
+        patch.object(db, "close"),
+        client.websocket_connect(f"/api/chats/ws?token={marek_token}") as ws,
+    ):
         ws.send_text("ping")
         assert ws.receive_text() == "pong"
 
