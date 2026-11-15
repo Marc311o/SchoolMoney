@@ -15,10 +15,7 @@ from app.modules.users.repository import get_user_by_id
 security = HTTPBearer()
 
 
-def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    db: Annotated[Session, Depends(get_db)],
-) -> User:
+def authenticate_access_token(db: Session, token: str) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -27,7 +24,7 @@ def get_current_user(
 
     try:
         payload = decode_token(
-            credentials.credentials,
+            token,
             expected_type="access",
         )
 
@@ -51,6 +48,13 @@ def get_current_user(
         )
 
     return user
+
+
+def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    db: Annotated[Session, Depends(get_db)],
+) -> User:
+    return authenticate_access_token(db, credentials.credentials)
 
 
 def get_current_admin(

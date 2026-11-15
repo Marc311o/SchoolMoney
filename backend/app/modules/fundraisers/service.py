@@ -14,6 +14,7 @@ from app.modules.accounts.enums import AccountType, TransactionType
 from app.modules.accounts.models import Account, Transaction
 from app.modules.accounts.service import get_wallet, move_money
 from app.modules.accounts.utils import generate_fake_iban
+from app.modules.chat.service import post_class_system_message
 from app.modules.children.models import Child
 from app.modules.children.service import active_children_query
 from app.modules.classrooms.models import ChildClassMembership, SchoolClass
@@ -326,6 +327,11 @@ def create_fundraiser(db: Session, user: User, data: FundraiserCreate) -> Fundra
     ]
     db.add(fundraiser)
     db.flush()
+    post_class_system_message(
+        db,
+        fundraiser.class_id,
+        f"Treasurer started a fundraiser: {fundraiser.name}",
+    )
     result = FundraiserRead.model_validate(fundraiser)
     db.commit()
     return result
@@ -343,17 +349,6 @@ def update_fundraiser(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="end_date must be greater than or equal to start_date",
         )
-
-    rate = data.required_amount_per_child
-    if rate is not None and rate != fundraiser.required_amount_per_child:
-        payment = select(FundraiserPayment.id).where(
-            FundraiserPayment.fundraiser_id == fundraiser.id
-        )
-        if db.scalar(payment.limit(1)) is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="The contribution cannot change after a payment has been recorded",
-            )
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(fundraiser, field, value)
@@ -634,6 +629,11 @@ def close_fundraiser(
     fundraiser.status = FundraiserStatus.CLOSED
     fundraiser.closed_at = now_utc
     db.flush()
+    post_class_system_message(
+        db,
+        fundraiser.class_id,
+        f"Treasurer closed fundraiser: {fundraiser.name}",
+    )
     result = FundraiserCloseResult(
         fundraiser_id=fundraiser.id,
         status=FundraiserStatus.CLOSED,

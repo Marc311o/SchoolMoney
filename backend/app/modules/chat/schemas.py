@@ -22,12 +22,24 @@ class MessageCreate(SchemaBase):
     content: MessageContent
 
 
+class MessageUpdate(SchemaBase):
+    content: MessageContent
+
+
 class MessageRead(SchemaBase):
     id: UUID
     chat_id: UUID
-    sender: UserSummaryRead
+    sender: UserSummaryRead | None
+    is_system: bool = False
     content: str
     created_at: datetime
+    edited_at: datetime | None = None
+    deleted_at: datetime | None = None
+
+
+class ChatParticipantRead(SchemaBase):
+    user: UserSummaryRead
+    last_read_at: datetime | None = None
 
 
 class MessagePage(SchemaBase):
@@ -49,6 +61,7 @@ class ChatRead(SchemaBase):
     treasurer_classes: list[str] | None = None
     children_count: int | None = None
     parents_count: int | None = None
+    participants: list[ChatParticipantRead] = []
     last_message: MessageRead | None
     unread_count: int
     last_activity_at: datetime

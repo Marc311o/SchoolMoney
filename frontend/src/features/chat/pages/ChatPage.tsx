@@ -12,6 +12,7 @@ import {
   chatTabs,
   useChatContacts,
   useChats,
+  useChatWebSocket,
   useOpenAdminChat,
   useOpenDirectChat,
 } from '@/features/chat/api'
@@ -26,9 +27,12 @@ export function ChatPage() {
   const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
 
   const { data: me } = useCurrentUser()
-  const chats = useChats()
+  const [search, setSearch] = useState('')
+  const chats = useChats(search)
   const { data: classes } = useClasses()
   const isTreasurer = canMessageAdmin(classes)
+
+  useChatWebSocket(chatId, me?.id ?? '')
 
   const openDirect = useOpenDirectChat()
   const openAdmin = useOpenAdminChat()
@@ -53,6 +57,14 @@ export function ChatPage() {
     setIsNewMessageOpen(false)
     openDirect.reset()
   }
+
+  const activeChatSummary = chats.data?.find((c) => c.id === chatId)
+  const isTreasurerOfActiveClass = Boolean(
+    activeChatSummary?.class_id &&
+    classes?.some(
+      (c) => c.id === activeChatSummary.class_id && c.my_role === 'TREASURER',
+    ),
+  )
 
   const showList = !isNarrow || !chatId
   const showConversation = !isNarrow || Boolean(chatId)
@@ -83,6 +95,8 @@ export function ChatPage() {
               myId={me.id}
               selectedId={chatId}
               tabs={chatTabs(isTreasurer)}
+              search={search}
+              onSearchChange={setSearch}
               onOpen={openChat}
               onNewMessage={() => setIsNewMessageOpen(true)}
               onMessageAdmin={() =>
@@ -102,6 +116,7 @@ export function ChatPage() {
                 key={chatId}
                 chatId={chatId}
                 myId={me.id}
+                canModerate={isTreasurerOfActiveClass}
                 onBack={isNarrow ? () => navigate('/chat') : undefined}
               />
             ) : (

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
@@ -9,12 +9,15 @@ from sqlalchemy.orm import Session
 from app.modules.chat.enums import ChatKind
 from app.modules.chat.models import Chat, ChatParticipant, Message
 from app.modules.chat.schemas import (
+    ChatParticipantRead,
     ChatRead,
     DirectChatCreate,
     MessageCreate,
     MessagePage,
     MessageRead,
+    MessageUpdate,
 )
+from app.modules.chat.ws import manager
 from app.modules.children.models import Child
 from app.modules.classrooms.enums import MembershipStatus
 from app.modules.classrooms.models import ChildClassMembership, SchoolClass
@@ -23,6 +26,7 @@ from app.modules.users.models import User
 from app.modules.users.schemas import UserSummaryRead
 
 ADMIN_CHAT_TITLE = "Administrator"
+EDIT_DELETE_WINDOW = timedelta(minutes=15)
 
 
 def _now() -> datetime:
@@ -31,6 +35,10 @@ def _now() -> datetime:
 
 def _chat_not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+
+
+def _message_not_found() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +68,8 @@ def _my_class_ids(db: Session, user: User) -> list[UUID]:
 
 def _ensure_class_chats(db: Session, class_ids: list[UUID]) -> None:
     """Every class has a chat; it is created the first time someone looks."""
+    if not class_ids:
+        return
     existing = db.scalars(
         select(Chat.class_id).where(Chat.kind == ChatKind.CLASS, Chat.class_id.in_(class_ids))
     )
@@ -84,7 +94,6 @@ def _visible_chats(db: Session, user: User) -> Select[tuple[Chat]]:
         and_(Chat.kind.in_((ChatKind.DIRECT, ChatKind.ADMIN)), Chat.id.in_(my_chats)),
     ]
     if user.role == UserRole.ADMIN:
-        # administrators see every treasurer's admin chat
         visible.append(Chat.kind == ChatKind.ADMIN)
     return select(Chat).where(or_(*visible))
 
@@ -97,23 +106,55 @@ def get_visible_chat(db: Session, user: User, chat_id: UUID) -> Chat:
     return chat
 
 
+def _chat_recipient_ids(db: Session, chat: Chat) -> set[UUID]:
+    """All user IDs allowed to receive live WebSocket events for a given chat."""
+    if chat.kind == ChatKind.CLASS and chat.class_id is not None:
+        treasurer_id = db.scalar(
+            select(SchoolClass.treasurer_id).where(SchoolClass.id == chat.class_id)
+        )
+        parent_ids = db.scalars(
+            select(Child.parent_id)
+            .join(ChildClassMembership, ChildClassMembership.child_id == Child.id)
+            .where(
+                ChildClassMembership.class_id == chat.class_id,
+                ChildClassMembership.status == MembershipStatus.ACTIVE,
+                Child.deleted_at.is_(None),
+            )
+        ).all()
+        recipients = set(parent_ids)
+        if treasurer_id is not None:
+            recipients.add(treasurer_id)
+        return recipients
+
+    participant_ids = set(
+        db.scalars(select(ChatParticipant.user_id).where(ChatParticipant.chat_id == chat.id)).all()
+    )
+    if chat.kind == ChatKind.ADMIN:
+        admin_ids = db.scalars(select(User.id).where(User.role == UserRole.ADMIN)).all()
+        participant_ids.update(admin_ids)
+    return participant_ids
+
+
 # ---------------------------------------------------------------------------
 # Conversation list
 # ---------------------------------------------------------------------------
 
 
-def _message_read(message: Message, sender: User) -> MessageRead:
+def _message_read(message: Message, sender: User | None) -> MessageRead:
     return MessageRead(
         id=message.id,
         chat_id=message.chat_id,
-        sender=UserSummaryRead.model_validate(sender),
-        content=message.content,
+        sender=UserSummaryRead.model_validate(sender) if sender is not None else None,
+        is_system=message.is_system,
+        content="" if message.deleted_at is not None else message.content,
         created_at=message.created_at,
+        edited_at=message.edited_at,
+        deleted_at=message.deleted_at,
     )
 
 
 def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
-    """Title, last message and unread count for many chats in a fixed number of queries."""
+    """Title, last message, participants and unread count for many chats."""
     if not chats:
         return []
     chat_ids = [chat.id for chat in chats]
@@ -122,7 +163,7 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
         message.chat_id: _message_read(message, sender)
         for message, sender in db.execute(
             select(Message, User)
-            .join(User, User.id == Message.sender_id)
+            .outerjoin(User, User.id == Message.sender_id)
             .where(Message.chat_id.in_(chat_ids))
             .order_by(Message.chat_id, Message.created_at.desc(), Message.id.desc())
             .ext(distinct_on(Message.chat_id))
@@ -141,7 +182,7 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
             )
             .where(
                 Message.chat_id.in_(chat_ids),
-                Message.sender_id != user.id,
+                or_(Message.sender_id.is_(None), Message.sender_id != user.id),
                 or_(
                     ChatParticipant.last_read_at.is_(None),
                     Message.created_at > ChatParticipant.last_read_at,
@@ -151,17 +192,44 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
         ).all()
     )
 
-    others: dict[UUID, User] = {}
-    for chat_id, other in db.execute(
-        select(ChatParticipant.chat_id, User)
+    participant_rows = db.execute(
+        select(ChatParticipant.chat_id, User, ChatParticipant.last_read_at)
         .join(User, User.id == ChatParticipant.user_id)
-        .where(
-            ChatParticipant.chat_id.in_(chat_ids),
-            ChatParticipant.user_id != user.id,
-            User.role != UserRole.ADMIN,
+        .where(ChatParticipant.chat_id.in_(chat_ids))
+    ).all()
+
+    read_receipts_by_chat: dict[UUID, dict[UUID, tuple[User, datetime | None]]] = {}
+    others: dict[UUID, User] = {}
+    for chat_id, participant_user, last_read_at in participant_rows:
+        read_receipts_by_chat.setdefault(chat_id, {})[participant_user.id] = (
+            participant_user,
+            last_read_at,
         )
-    ):
-        others[chat_id] = other
+        if participant_user.id != user.id and participant_user.role != UserRole.ADMIN:
+            others[chat_id] = participant_user
+
+    class_chats = [chat for chat in chats if chat.kind == ChatKind.CLASS and chat.class_id]
+    class_members: dict[UUID, dict[UUID, User]] = {}
+    if class_chats:
+        class_ids = [chat.class_id for chat in class_chats if chat.class_id is not None]
+        for class_id, treasurer in db.execute(
+            select(SchoolClass.id, User)
+            .join(User, User.id == SchoolClass.treasurer_id)
+            .where(SchoolClass.id.in_(class_ids))
+        ):
+            class_members.setdefault(class_id, {})[treasurer.id] = treasurer
+
+        for class_id, parent in db.execute(
+            select(ChildClassMembership.class_id, User)
+            .join(Child, Child.id == ChildClassMembership.child_id)
+            .join(User, User.id == Child.parent_id)
+            .where(
+                ChildClassMembership.class_id.in_(class_ids),
+                ChildClassMembership.status == MembershipStatus.ACTIVE,
+                Child.deleted_at.is_(None),
+            )
+        ):
+            class_members.setdefault(class_id, {})[parent.id] = parent
 
     treasurer_classes: dict[UUID, list[str]] = {}
     if user.role == UserRole.ADMIN:
@@ -170,50 +238,73 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
             for chat in chats
             if chat.kind == ChatKind.ADMIN and chat.id in others
         ]
-        for treasurer_id, name in db.execute(
-            select(SchoolClass.treasurer_id, SchoolClass.name)
-            .where(SchoolClass.treasurer_id.in_(treasurer_ids))
-            .order_by(SchoolClass.name)
-        ):
-            treasurer_classes.setdefault(treasurer_id, []).append(name)
+        if treasurer_ids:
+            for treasurer_id, name in db.execute(
+                select(SchoolClass.treasurer_id, SchoolClass.name)
+                .where(SchoolClass.treasurer_id.in_(treasurer_ids))
+                .order_by(SchoolClass.name)
+            ):
+                treasurer_classes.setdefault(treasurer_id, []).append(name)
 
-    classes = {
-        class_id: (name, children, parents)
-        for class_id, name, children, parents in db.execute(
-            select(
-                SchoolClass.id,
-                SchoolClass.name,
-                func.count(distinct(Child.id)),
-                func.count(distinct(Child.parent_id)),
+    classes = {}
+    if class_chats:
+        classes = {
+            class_id: (name, children, parents)
+            for class_id, name, children, parents in db.execute(
+                select(
+                    SchoolClass.id,
+                    SchoolClass.name,
+                    func.count(distinct(Child.id)),
+                    func.count(distinct(Child.parent_id)),
+                )
+                .outerjoin(
+                    ChildClassMembership,
+                    and_(
+                        ChildClassMembership.class_id == SchoolClass.id,
+                        ChildClassMembership.status == MembershipStatus.ACTIVE,
+                    ),
+                )
+                .outerjoin(
+                    Child,
+                    and_(Child.id == ChildClassMembership.child_id, Child.deleted_at.is_(None)),
+                )
+                .where(SchoolClass.id.in_([chat.class_id for chat in class_chats if chat.class_id]))
+                .group_by(SchoolClass.id)
             )
-            .outerjoin(
-                ChildClassMembership,
-                and_(
-                    ChildClassMembership.class_id == SchoolClass.id,
-                    ChildClassMembership.status == MembershipStatus.ACTIVE,
-                ),
-            )
-            .outerjoin(
-                Child,
-                and_(Child.id == ChildClassMembership.child_id, Child.deleted_at.is_(None)),
-            )
-            .where(SchoolClass.id.in_([chat.class_id for chat in chats if chat.class_id]))
-            .group_by(SchoolClass.id)
-        )
-    }
+        }
 
     summaries = []
     for chat in chats:
         other = others.get(chat.id)
         children_count = parents_count = None
-        if chat.kind == ChatKind.CLASS:
+        receipts = read_receipts_by_chat.get(chat.id, {})
+
+        if chat.kind == ChatKind.CLASS and chat.class_id is not None:
             name, children_count, parents_count = classes[chat.class_id]
             title, other_user = f"Class {name}", None
-        elif chat.kind == ChatKind.ADMIN and user.role != UserRole.ADMIN:
-            title, other_user = ADMIN_CHAT_TITLE, None
+            members_map = dict(class_members.get(chat.class_id, {}))
+            for uid, (u_obj, _) in receipts.items():
+                members_map.setdefault(uid, u_obj)
+            participants = [
+                ChatParticipantRead(
+                    user=UserSummaryRead.model_validate(member_user),
+                    last_read_at=receipts.get(member_id, (member_user, None))[1],
+                )
+                for member_id, member_user in members_map.items()
+            ]
         else:
-            title = f"{other.first_name} {other.last_name}" if other else "Deleted user"
-            other_user = UserSummaryRead.model_validate(other) if other else None
+            if chat.kind == ChatKind.ADMIN and user.role != UserRole.ADMIN:
+                title, other_user = ADMIN_CHAT_TITLE, None
+            else:
+                title = f"{other.first_name} {other.last_name}" if other else "Deleted user"
+                other_user = UserSummaryRead.model_validate(other) if other else None
+            participants = [
+                ChatParticipantRead(
+                    user=UserSummaryRead.model_validate(p_user),
+                    last_read_at=p_read_at,
+                )
+                for p_user, p_read_at in receipts.values()
+            ]
 
         last_message = last_messages.get(chat.id)
         blocked = (
@@ -233,9 +324,10 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
                 other_user=other_user,
                 other_user_blocked=blocked,
                 treasurer_classes=runs,
-                last_message=last_message,
                 children_count=children_count,
                 parents_count=parents_count,
+                participants=participants,
+                last_message=last_message,
                 unread_count=unread.get(chat.id, 0),
                 last_activity_at=last_message.created_at if last_message else chat.created_at,
             )
@@ -249,12 +341,33 @@ def list_chats(
     statement = _visible_chats(db, user)
     if kind is not None:
         statement = statement.where(Chat.kind == kind)
-    summaries = _summaries(db, user, list(db.scalars(statement)))
+    chats = list(db.scalars(statement))
+    summaries = _summaries(db, user, chats)
     db.commit()  # class chats created on the way
 
-    if query:
-        needle = query.strip().casefold()
-        summaries = [chat for chat in summaries if needle in chat.title.casefold()]
+    if query and query.strip():
+        raw_query = query.strip()
+        needle = raw_query.casefold()
+        chat_ids = [chat.id for chat in summaries]
+        matched_by_message_ids: set[UUID] = set()
+        if chat_ids:
+            matched_by_message_ids = set(
+                db.scalars(
+                    select(Message.chat_id)
+                    .distinct()
+                    .where(
+                        Message.chat_id.in_(chat_ids),
+                        Message.deleted_at.is_(None),
+                        Message.content.ilike(f"%{raw_query}%"),
+                    )
+                ).all()
+            )
+        summaries = [
+            chat
+            for chat in summaries
+            if needle in chat.title.casefold() or chat.id in matched_by_message_ids
+        ]
+
     return sorted(summaries, key=lambda chat: chat.last_activity_at, reverse=True)
 
 
@@ -276,7 +389,7 @@ def list_messages(
     chat = get_visible_chat(db, user, chat_id)
     statement = (
         select(Message, User)
-        .join(User, User.id == Message.sender_id)
+        .outerjoin(User, User.id == Message.sender_id)
         .where(Message.chat_id == chat.id)
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(limit + 1)
@@ -284,7 +397,7 @@ def list_messages(
     if before is not None:
         cursor = db.get(Message, before)
         if cursor is None or cursor.chat_id != chat.id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+            raise _message_not_found()
         statement = statement.where(
             or_(
                 Message.created_at < cursor.created_at,
@@ -314,25 +427,165 @@ def _mark_read(db: Session, user: User, chat_id: UUID, at: datetime) -> None:
 
 def send_message(db: Session, user: User, chat_id: UUID, data: MessageCreate) -> MessageRead:
     chat = get_visible_chat(db, user, chat_id)
+    now = _now()
     message = Message(
         id=uuid4(),
         chat_id=chat.id,
         sender_id=user.id,
+        is_system=False,
         content=data.content,
-        created_at=_now(),
+        created_at=now,
     )
     db.add(message)
     db.flush()
-    # my own message is not unread for me
     _mark_read(db, user, chat.id, message.created_at)
+    recipients = _chat_recipient_ids(db, chat)
+    result = _message_read(message, user)
     db.commit()
-    return _message_read(message, user)
+
+    manager.broadcast_sync(
+        recipients,
+        {
+            "type": "message.created",
+            "chat_id": str(chat.id),
+            "message": result.model_dump(mode="json"),
+        },
+    )
+    return result
+
+
+def edit_message(
+    db: Session, user: User, chat_id: UUID, message_id: UUID, data: MessageUpdate
+) -> MessageRead:
+    chat = get_visible_chat(db, user, chat_id)
+    message = db.scalar(select(Message).where(Message.id == message_id, Message.chat_id == chat.id))
+    if message is None:
+        raise _message_not_found()
+    if message.is_system or message.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This message cannot be edited",
+        )
+    if message.sender_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit your own messages",
+        )
+    now = _now()
+    if now - message.created_at > EDIT_DELETE_WINDOW:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Message can no longer be edited",
+        )
+
+    message.content = data.content
+    message.edited_at = now
+    db.flush()
+    recipients = _chat_recipient_ids(db, chat)
+    result = _message_read(message, user)
+    db.commit()
+
+    manager.broadcast_sync(
+        recipients,
+        {
+            "type": "message.updated",
+            "chat_id": str(chat.id),
+            "message": result.model_dump(mode="json"),
+        },
+    )
+    return result
+
+
+def delete_message(db: Session, user: User, chat_id: UUID, message_id: UUID) -> None:
+    chat = get_visible_chat(db, user, chat_id)
+    message = db.scalar(select(Message).where(Message.id == message_id, Message.chat_id == chat.id))
+    if message is None:
+        raise _message_not_found()
+    if message.is_system or message.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This message cannot be deleted",
+        )
+
+    now = _now()
+    is_owner_in_window = (
+        message.sender_id == user.id and (now - message.created_at) <= EDIT_DELETE_WINDOW
+    )
+    is_class_treasurer = (
+        chat.kind == ChatKind.CLASS
+        and chat.school_class is not None
+        and chat.school_class.treasurer_id == user.id
+    )
+
+    if not is_owner_in_window and not is_class_treasurer:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this message",
+        )
+
+    message.deleted_at = now
+    message.content = ""
+    db.flush()
+    recipients = _chat_recipient_ids(db, chat)
+    db.commit()
+
+    manager.broadcast_sync(
+        recipients,
+        {
+            "type": "message.deleted",
+            "chat_id": str(chat.id),
+            "message_id": str(message.id),
+            "deleted_at": now.isoformat(),
+        },
+    )
 
 
 def mark_read(db: Session, user: User, chat_id: UUID) -> None:
     chat = get_visible_chat(db, user, chat_id)
-    _mark_read(db, user, chat.id, _now())
+    now = _now()
+    _mark_read(db, user, chat.id, now)
+    recipients = _chat_recipient_ids(db, chat)
     db.commit()
+
+    manager.broadcast_sync(
+        recipients,
+        {
+            "type": "chat.read",
+            "chat_id": str(chat.id),
+            "user_id": str(user.id),
+            "last_read_at": now.isoformat(),
+        },
+    )
+
+
+def post_class_system_message(db: Session, class_id: UUID, content: str) -> None:
+    """Create a system notification message inside a class chat (no sender user)."""
+    _ensure_class_chats(db, [class_id])
+    chat = db.scalar(
+        select(Chat).where(Chat.kind == ChatKind.CLASS, Chat.class_id == class_id).limit(1)
+    )
+    if chat is None:
+        return
+    message = Message(
+        id=uuid4(),
+        chat_id=chat.id,
+        sender_id=None,
+        is_system=True,
+        content=content,
+        created_at=_now(),
+    )
+    db.add(message)
+    db.flush()
+    recipients = _chat_recipient_ids(db, chat)
+    result = _message_read(message, None)
+    manager.broadcast_sync(
+        recipients,
+        {
+            "type": "message.created",
+            "chat_id": str(chat.id),
+            "message": result.model_dump(mode="json"),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Text, Uuid, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Text, Uuid, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -110,10 +110,17 @@ class Message(Base):
         nullable=False,
     )
 
-    sender_id: Mapped[UUID] = mapped_column(
+    sender_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id"),
+        nullable=True,
+    )
+
+    is_system: Mapped[bool] = mapped_column(
+        Boolean,
         nullable=False,
+        default=False,
+        server_default=text("false"),
     )
 
     content: Mapped[str] = mapped_column(
@@ -125,6 +132,16 @@ class Message(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    edited_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     chat = relationship(

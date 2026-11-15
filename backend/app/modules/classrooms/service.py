@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
 from app.modules.auth.mailer import EmailDeliveryError
+from app.modules.chat.service import post_class_system_message
 from app.modules.children.models import Child
 from app.modules.children.service import active_children_query
 from app.modules.classrooms.enums import ClassRole, MembershipStatus
@@ -411,6 +412,14 @@ def review_membership(
                             child_id=membership.child_id,
                         )
                     )
+
+        child = db.get(Child, membership.child_id)
+        if child is not None:
+            post_class_system_message(
+                db,
+                class_id,
+                f"{child.first_name} {child.last_name} joined the class",
+            )
     elif payload.status == MembershipStatus.REJECTED:
         membership.left_at = now
 

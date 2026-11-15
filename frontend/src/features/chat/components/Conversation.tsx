@@ -8,6 +8,8 @@ import {
   isChatNotFound,
   useChat,
   useChatMessages,
+  useDeleteMessage,
+  useEditMessage,
   useMarkChatRead,
   useSendMessage,
 } from '@/features/chat/api'
@@ -18,22 +20,29 @@ import { MessageList } from '@/features/chat/components/MessageList'
 interface ConversationProps {
   chatId: string
   myId: string
+  canModerate?: boolean
   /** Narrow screens: back to the list */
   onBack?: () => void
 }
 
 /** Right column: header, messages and the composer of one conversation */
-export function Conversation({ chatId, myId, onBack }: ConversationProps) {
+export function Conversation({
+  chatId,
+  myId,
+  canModerate = false,
+  onBack,
+}: ConversationProps) {
   const chat = useChat(chatId)
   const messages = useChatMessages(chatId)
   const sendMessage = useSendMessage(chatId)
+  const editMessage = useEditMessage(chatId)
+  const deleteMessage = useDeleteMessage(chatId)
   const { mutate: markRead } = useMarkChatRead(chatId)
 
   const last = messages.data?.at(-1)
 
-  // reading the conversation clears its unread badge: on open and on each new message
   useEffect(() => {
-    if (last && last.sender.id !== myId) markRead()
+    if (last && last.sender?.id !== myId) markRead()
   }, [last, myId, markRead])
 
   if (isChatNotFound(chat.error) || isChatNotFound(messages.error)) {
@@ -66,6 +75,12 @@ export function Conversation({ chatId, myId, onBack }: ConversationProps) {
         messages={messages.data}
         myId={myId}
         kind={chat.data.kind}
+        participants={chat.data.participants ?? []}
+        canModerate={canModerate}
+        onEdit={(messageId, content) =>
+          editMessage.mutateAsync({ messageId, content })
+        }
+        onDelete={(messageId) => deleteMessage.mutateAsync(messageId)}
         hasOlder={messages.hasNextPage}
         loadingOlder={messages.isFetchingNextPage}
         onLoadOlder={() => void messages.fetchNextPage()}
