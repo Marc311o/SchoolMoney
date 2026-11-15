@@ -68,7 +68,6 @@ class FundraiserUpdate(SchemaBase):
     name: FundraiserName | None = None
     description: TextDescription | None = None
     logo_url: ResourceUrl | None = None
-    required_amount_per_child: PositiveMoney | None = None
     start_date: date | None = None
     end_date: date | None = None
 
@@ -77,7 +76,7 @@ class FundraiserUpdate(SchemaBase):
     def non_nullable_database_fields(cls, data: Any) -> Any:
         return _reject_explicit_nulls(
             data,
-            ("name", "required_amount_per_child", "start_date", "end_date"),
+            ("name", "start_date", "end_date"),
         )
 
     @model_validator(mode="after")

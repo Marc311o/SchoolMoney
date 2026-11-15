@@ -161,7 +161,7 @@ def test_payment_uses_full_rate_and_updates_history_and_progress(client, db, sch
     assert children[school.own_child_id]["remaining_amount"] == "50.25"
 
     edit = client.patch(url, headers=treasurer, json={"required_amount_per_child": "51.00"})
-    assert edit.status_code == 409
+    assert edit.status_code == 422
     assert client.delete(url, headers=treasurer).status_code == 409
     assert (
         client.delete(

@@ -344,17 +344,6 @@ def update_fundraiser(
             detail="end_date must be greater than or equal to start_date",
         )
 
-    rate = data.required_amount_per_child
-    if rate is not None and rate != fundraiser.required_amount_per_child:
-        payment = select(FundraiserPayment.id).where(
-            FundraiserPayment.fundraiser_id == fundraiser.id
-        )
-        if db.scalar(payment.limit(1)) is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="The contribution cannot change after a payment has been recorded",
-            )
-
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(fundraiser, field, value)
     db.flush()
