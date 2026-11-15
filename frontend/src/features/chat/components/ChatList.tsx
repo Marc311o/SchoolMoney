@@ -10,7 +10,7 @@ import WhiteCard from '@/components/WhiteCard'
 import {
   type ChatSummary,
   type ChatTab,
-  filterChats,
+  filterChatsByTab,
 } from '@/features/chat/api'
 import { ChatListItem } from '@/features/chat/components/ChatListItem'
 
@@ -28,6 +28,8 @@ interface ChatListProps {
   myId: string
   selectedId: string | undefined
   tabs: ChatTab[]
+  search?: string
+  onSearchChange?: (value: string) => void
   searchPlaceholder?: string
   newMessageLabel?: string
   onOpen: (chatId: string) => void
@@ -44,7 +46,9 @@ export function ChatList({
   myId,
   selectedId,
   tabs,
-  searchPlaceholder = 'Search class or parent',
+  search,
+  onSearchChange,
+  searchPlaceholder = 'Search conversations or messages',
   newMessageLabel = 'New message',
   onOpen,
   onNewMessage,
@@ -52,9 +56,21 @@ export function ChatList({
   messageAdminPending = false,
 }: ChatListProps) {
   const [tab, setTab] = useState<ChatTab>('ALL')
-  const [search, setSearch] = useState('')
+  const [internalSearch, setInternalSearch] = useState('')
 
-  const visible = filterChats(chats, tab, search)
+  const effectiveSearch = search ?? internalSearch
+  const handleSearchChange = onSearchChange ?? setInternalSearch
+
+  const tabFiltered = filterChatsByTab(chats, tab)
+  const visible =
+    onSearchChange !== undefined || !effectiveSearch.trim()
+      ? tabFiltered
+      : tabFiltered.filter((chat) =>
+          chat.title
+            .toLocaleLowerCase()
+            .includes(effectiveSearch.trim().toLocaleLowerCase()),
+        )
+
   const tabOptions = tabs.map((value) => ({
     value,
     label: TAB_LABELS[value],
@@ -87,10 +103,10 @@ export function ChatList({
           />
         )}
         <TextInput
-          value={search}
-          onChange={setSearch}
+          value={effectiveSearch}
+          onChange={handleSearchChange}
           placeholder={searchPlaceholder}
-          ariaLabel="Search conversations"
+          ariaLabel="Search conversations or messages"
           icon={<SearchRoundedIcon fontSize="small" />}
         />
       </Stack>
@@ -115,7 +131,7 @@ export function ChatList({
           </Stack>
         ) : visible.length === 0 ? (
           <Message>
-            {search.trim()
+            {effectiveSearch.trim()
               ? 'No conversations match your search.'
               : 'No conversations here yet.'}
           </Message>
