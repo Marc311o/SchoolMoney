@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.reports.export import export_csv, export_pdf
-from app.modules.reports.schemas import FinancialReport, ReportScope
+from app.modules.reports.schemas import FinancialReport, ReportLanguage, ReportScope
 from app.modules.reports.service import get_report
 from app.modules.users.models import User
 
@@ -42,17 +42,21 @@ def download_report(
     user: CurrentUser,
     db: DbSession,
     file_format: Annotated[Literal["csv", "pdf"], Query(alias="format")],
+    lang: Annotated[ReportLanguage, Query(description="Language of the exported report")] = "pl",
 ) -> Response:
     report = get_report(db, user, scope, subject_id)
+
     if file_format == "csv":
-        content, media_type = export_csv(report), "application/octet-stream"
+        content, media_type = export_csv(report, lang=lang), "application/octet-stream"
     else:
-        content, media_type = export_pdf(report), "application/pdf"
+        content, media_type = export_pdf(report, lang=lang), "application/pdf"
+
     return Response(
         content,
         media_type=media_type,
         headers={
             "Content-Disposition": f'attachment; filename="{scope}-{subject_id}.{file_format}"',
+            "Content-Language": lang,
             "Cache-Control": "no-store",
         },
     )

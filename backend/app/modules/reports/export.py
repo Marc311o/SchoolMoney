@@ -1,4 +1,6 @@
 import csv
+from dataclasses import dataclass
+from functools import partial
 from io import BytesIO, StringIO
 from threading import Lock
 from xml.sax.saxutils import escape
@@ -12,15 +14,60 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer
 
-from app.modules.reports.schemas import FinancialReport, ReportRow
+from app.modules.reports.schemas import FinancialReport, ReportLanguage, ReportRow, ReportScope
 
-REPORT_TITLES = {
-    "fundraiser": "Raport zbiórki",
-    "child": "Raport dziecka",
-    "class": "Raport klasy",
+
+@dataclass(frozen=True)
+class ReportLabels:
+    titles: dict[ReportScope, str]
+    child: str
+    fundraiser: str
+    contribution_columns: tuple[str, str, str, str]
+    account_columns: tuple[str, str, str]
+    total: str
+    account: str
+    amount: str
+    amounts_note: str
+    page: str
+    decimal_separator: str
+
+
+REPORT_LABELS: dict[ReportLanguage, ReportLabels] = {
+    "pl": ReportLabels(
+        titles={
+            "fundraiser": "Raport zbiórki",
+            "child": "Raport dziecka",
+            "class": "Raport klasy",
+        },
+        child="Dziecko",
+        fundraiser="Zbiórka",
+        contribution_columns=("Należne", "Wpłaty", "Zwroty", "Wpłaty po zwrotach"),
+        account_columns=("Wpłaty skarbnika", "Wypłaty skarbnika", "Saldo"),
+        total="Razem",
+        account="Konto zbiórki",
+        amount="Kwota",
+        amounts_note="Kwoty w {currency}",
+        page="Strona",
+        decimal_separator=",",
+    ),
+    "en": ReportLabels(
+        titles={
+            "fundraiser": "Fundraiser report",
+            "child": "Child report",
+            "class": "Class report",
+        },
+        child="Child",
+        fundraiser="Fundraiser",
+        contribution_columns=("Amount due", "Payments", "Refunds", "Paid after refunds"),
+        account_columns=("Treasurer deposits", "Treasurer withdrawals", "Balance"),
+        total="Total",
+        account="Fundraiser account",
+        amount="Amount",
+        amounts_note="Amounts in {currency}",
+        page="Page",
+        decimal_separator=".",
+    ),
 }
-CONTRIBUTION_COLUMNS = ("Należne", "Wpłaty", "Zwroty", "Wpłaty po zwrotach")
-ACCOUNT_COLUMNS = ("Wpłaty skarbnika", "Wypłaty skarbnika", "Saldo")
 PDF_FONT = "DejaVuSans"
 PDF_FONT_BOLD = "DejaVuSans-Bold"
 PDF_FONT_LOCK = Lock()
@@ -44,12 +91,12 @@ def _amounts(row: ReportRow) -> list[str]:
 
 
 def _report_table(
-    report: FinancialReport, total_label: str
+    report: FinancialReport, labels: ReportLabels, total_label: str
 ) -> tuple[tuple[str, ...], list[list[str]]]:
-    label = "Dziecko" if report.scope == "fundraiser" else "Zbiórka"
-    columns = (label, *CONTRIBUTION_COLUMNS)
+    label = labels.child if report.scope == "fundraiser" else labels.fundraiser
+    columns = (label, *labels.contribution_columns)
     if report.scope == "class":
-        columns += ACCOUNT_COLUMNS
+        columns += labels.account_columns
 
     amount_count = len(columns) - 1
     rows = [[row.name, *_amounts(row)[:amount_count]] for row in report.rows]
@@ -57,11 +104,11 @@ def _report_table(
     return columns, rows
 
 
-def _fundraiser_account_rows(report: FinancialReport) -> list[list[str]]:
+def _fundraiser_account_rows(report: FinancialReport, labels: ReportLabels) -> list[list[str]]:
     if report.scope != "fundraiser" or report.account is None:
         return []
-    amounts = _amounts(report)[len(CONTRIBUTION_COLUMNS) :]
-    return [[name, amount] for name, amount in zip(ACCOUNT_COLUMNS, amounts, strict=True)]
+    amounts = _amounts(report)[len(labels.contribution_columns) :]
+    return [[name, amount] for name, amount in zip(labels.account_columns, amounts, strict=True)]
 
 
 def _csv_name(name: str) -> str:
@@ -71,19 +118,20 @@ def _csv_name(name: str) -> str:
     return name
 
 
-def export_csv(report: FinancialReport) -> bytes:
+def export_csv(report: FinancialReport, lang: ReportLanguage = "pl") -> bytes:
+    labels = REPORT_LABELS[lang]
     output = StringIO(newline="")
     writer = csv.writer(output)
-    columns, rows = _report_table(report, f"Razem - {report.name}")
+    columns, rows = _report_table(report, labels, f"{labels.total} - {report.name}")
     writer.writerow((columns[0], *(f"{label} {report.currency}" for label in columns[1:])))
     for name, *amounts in rows:
         writer.writerow((_csv_name(name), *amounts))
 
-    account_rows = _fundraiser_account_rows(report)
+    account_rows = _fundraiser_account_rows(report, labels)
     if account_rows:
         padding = [""] * (len(columns) - 2)
         writer.writerow([""] * len(columns))
-        writer.writerow(("Konto zbiórki", f"Kwota {report.currency}", *padding))
+        writer.writerow((labels.account, f"{labels.amount} {report.currency}", *padding))
         for row in account_rows:
             writer.writerow((*row, *padding))
 
@@ -91,7 +139,6 @@ def export_csv(report: FinancialReport) -> bytes:
 
 
 def _pdf_amount(value: str, width: int, style: ParagraphStyle) -> Paragraph:
-    value = value.replace(".", ",")
     available = width - 12
     text_width = pdfmetrics.stringWidth(value, style.fontName, style.fontSize)
     if text_width > available:
@@ -107,6 +154,7 @@ def _pdf_table(
     widths: list[int],
     *,
     highlight_total: bool,
+    decimal_separator: str,
 ) -> LongTable:
     text = ParagraphStyle("ReportText", fontName=PDF_FONT, fontSize=9, leading=13, textColor=INK)
     amount = ParagraphStyle("ReportAmount", parent=text, alignment=TA_RIGHT)
@@ -127,7 +175,7 @@ def _pdf_table(
             [
                 Paragraph(escape(name), name_style),
                 *(
-                    _pdf_amount(value, width, amount_style)
+                    _pdf_amount(value.replace(".", decimal_separator), width, amount_style)
                     for value, width in zip(amounts, widths[1:], strict=True)
                 ),
             ]
@@ -146,18 +194,19 @@ def _pdf_table(
     return LongTable(data, colWidths=widths, repeatRows=1, hAlign="LEFT", style=style)
 
 
-def _pdf_footer(canvas: Canvas, document: SimpleDocTemplate) -> None:
+def _pdf_footer(canvas: Canvas, document: SimpleDocTemplate, *, page_label: str) -> None:
     canvas.saveState()
     canvas.setFont(PDF_FONT, 8)
     canvas.setFillColor(MUTED)
     canvas.drawString(document.leftMargin + 6, 22, "SchoolMoney")
     canvas.drawRightString(
-        document.pagesize[0] - document.rightMargin - 6, 22, f"Strona {document.page}"
+        document.pagesize[0] - document.rightMargin - 6, 22, f"{page_label} {document.page}"
     )
     canvas.restoreState()
 
 
-def export_pdf(report: FinancialReport) -> bytes:
+def export_pdf(report: FinancialReport, lang: ReportLanguage = "pl") -> bytes:
+    labels = REPORT_LABELS[lang]
     with PDF_FONT_LOCK:
         if PDF_FONT_BOLD not in pdfmetrics.getRegisteredFontNames():
             font_dir = "/usr/share/fonts/truetype/dejavu"
@@ -165,7 +214,7 @@ def export_pdf(report: FinancialReport) -> bytes:
             pdfmetrics.registerFont(TTFont(PDF_FONT_BOLD, f"{font_dir}/{PDF_FONT_BOLD}.ttf"))
 
     output = BytesIO()
-    title = REPORT_TITLES[report.scope]
+    title = labels.titles[report.scope]
     is_class = report.scope == "class"
     document = SimpleDocTemplate(
         output,
@@ -189,19 +238,30 @@ def export_pdf(report: FinancialReport) -> bytes:
         Paragraph(title, title_style),
         Spacer(1, 4),
         Paragraph(escape(report.name), name_style),
-        Paragraph(f"Kwoty w {report.currency}", note_style),
+        Paragraph(labels.amounts_note.format(currency=report.currency), note_style),
         Spacer(1, 16),
     ]
 
-    account_rows = _fundraiser_account_rows(report)
+    account_rows = _fundraiser_account_rows(report, labels)
     if account_rows:
         story.append(
-            _pdf_table(("Konto zbiórki", "Kwota"), account_rows, [360, 144], highlight_total=False)
+            _pdf_table(
+                (labels.account, labels.amount),
+                account_rows,
+                [360, 144],
+                highlight_total=False,
+                decimal_separator=labels.decimal_separator,
+            )
         )
         story.append(Spacer(1, 16))
 
-    columns, rows = _report_table(report, "Razem")
+    columns, rows = _report_table(report, labels, labels.total)
     widths = [174, 74, 74, 74, 74, 102, 102, 74] if is_class else [208, 74, 74, 74, 74]
-    story.append(_pdf_table(columns, rows, widths, highlight_total=True))
-    document.build(story, onFirstPage=_pdf_footer, onLaterPages=_pdf_footer)
+    story.append(
+        _pdf_table(
+            columns, rows, widths, highlight_total=True, decimal_separator=labels.decimal_separator
+        )
+    )
+    footer = partial(_pdf_footer, page_label=labels.page)
+    document.build(story, onFirstPage=footer, onLaterPages=footer)
     return output.getvalue()

@@ -8,6 +8,7 @@ from app.common.schemas import SchemaBase
 from app.modules.fundraisers.schemas import MoneyTotal
 
 ReportScope = Literal["fundraiser", "child", "class"]
+ReportLanguage = Literal["pl", "en"]
 ZERO = Decimal("0.00")
 
 
