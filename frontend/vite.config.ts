@@ -16,7 +16,10 @@ export default defineConfig({
       interval: 300,
     },
     proxy: {
-      '/api': process.env.API_URL ?? 'http://localhost:8000',
+      '/api': {
+        target: process.env.API_URL ?? 'http://localhost:8000',
+        ws: true,
+      },
     },
   },
 })
