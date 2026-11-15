@@ -30,7 +30,7 @@ def read_report(
     responses={
         200: {
             "content": {
-                "text/csv": {"schema": {"type": "string", "format": "binary"}},
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
                 "application/pdf": {"schema": {"type": "string", "format": "binary"}},
             }
         }
@@ -45,7 +45,7 @@ def download_report(
 ) -> Response:
     report = get_report(db, user, scope, subject_id)
     if file_format == "csv":
-        content, media_type = export_csv(report), "text/csv"
+        content, media_type = export_csv(report), "application/octet-stream"
     else:
         content, media_type = export_pdf(report), "application/pdf"
     return Response(
