@@ -12,7 +12,6 @@ import {
   chatTabs,
   useChatContacts,
   useChats,
-  useChatWebSocket,
   useOpenAdminChat,
   useOpenDirectChat,
 } from '@/features/chat/api'
@@ -31,8 +30,6 @@ export function ChatPage() {
   const chats = useChats(search)
   const { data: classes } = useClasses()
   const isTreasurer = canMessageAdmin(classes)
-
-  useChatWebSocket(chatId, me?.id ?? '')
 
   const openDirect = useOpenDirectChat()
   const openAdmin = useOpenAdminChat()
