@@ -68,7 +68,10 @@ function refreshOnce(): Promise<boolean> {
   return refreshInFlight
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function sendWithAuth(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
   let response = await send(path, init)
 
   if (
@@ -84,6 +87,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
   }
 
+  return response
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await sendWithAuth(path, init)
+
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new ApiError(response.status, body?.detail ?? body)
@@ -92,8 +101,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? (undefined as T) : response.json()
 }
 
+/**
+ * Downloads a file from the API using the same authentication
+ * and token refresh mechanism as regular requests.
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  const response = await sendWithAuth(path)
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+
+    throw new ApiError(response.status, body?.detail ?? body)
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+
+  // Prevent downloading the frontend index.html as a CSV/PDF.
+  if (contentType.includes('text/html')) {
+    throw new Error(
+      'The API returned HTML instead of a report. Check the API URL and Vite proxy configuration.',
+    )
+  }
+
+  return response.blob()
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getBlob: (path: string) => requestBlob(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: 'POST',
