@@ -2,10 +2,13 @@ import {
   Box,
   Breadcrumbs,
   CircularProgress,
+  IconButton,
   Link,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material'
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router'
 
 import AppAvatar from '@/components/AppAvatar'
@@ -17,6 +20,7 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import { useCurrentUser } from '@/features/auth/api'
 import {
   type ClassMemberWithParent,
+  type UserSummary,
   isClassNotFound,
   useClass,
   useRemoveMembership,
@@ -27,6 +31,7 @@ import { LeaveClassSection } from '@/features/classes/components/LeaveClassSecti
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
 import { ParentSearchSection } from '@/features/classes/components/ParentSearchSection'
+import { useOpenDirectChat } from '@/features/chat/api'
 import { fullName } from '@/lib/names'
 import { useState } from 'react'
 import AppButton from '@/components/AppButton'
@@ -48,6 +53,7 @@ export function ClassPage() {
   const { data: schoolClass, isPending, error } = useClass(classId)
   const { data: me } = useCurrentUser()
   const review = useReviewMembership(classId)
+  const openDirectChat = useOpenDirectChat()
   const navigate = useNavigate()
   const [toast, setToast] = useState<{
     message: string
@@ -88,6 +94,14 @@ export function ClassPage() {
 
   const notify = (message: string, severity: SnackbarSeverity = 'success') =>
     setToast({ message, severity, id: Date.now() })
+
+  const handleMessageParent = (parent: UserSummary) => {
+    openDirectChat.mutate(parent.id, {
+      onSuccess: (chat) => navigate(`/chat/${chat.id}`),
+      onError: () =>
+        notify(`Could not open chat with ${fullName(parent)}`, 'error'),
+    })
+  }
 
   const approve = (member: ClassMemberWithParent) => {
     review.mutate(
@@ -227,6 +241,22 @@ export function ClassPage() {
               </Box>
               <b>{treasurerName}</b>
             </Typography>
+            <Tooltip title={`Text ${treasurerName}`}>
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label={`Text ${treasurerName}`}
+                  disabled={
+                    openDirectChat.isPending &&
+                    openDirectChat.variables === schoolClass.treasurer.id
+                  }
+                  onClick={() => handleMessageParent(schoolClass.treasurer)}
+                  sx={{ color: 'primary.main' }}
+                >
+                  <ChatBubbleOutlineRoundedIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Stack>
         )}
       </PageHeader>
@@ -277,6 +307,10 @@ export function ClassPage() {
             removeMembership.reset()
             setToRemove(member)
           }}
+          onMessageParent={handleMessageParent}
+          messagingParentId={
+            openDirectChat.isPending ? (openDirectChat.variables ?? null) : null
+          }
         />
       </PageSection>
 
