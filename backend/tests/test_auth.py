@@ -2,14 +2,18 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.accounts.models import Account
+from app.modules.auth.config import AuthSettings, settings
 from app.modules.auth.models import AccountActivationToken
-from app.modules.auth.security import hash_reset_token
+from app.modules.auth.security import decode_token, hash_reset_token
 from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from tests.conftest import PASSWORD
@@ -345,3 +349,97 @@ def test_change_password(client: TestClient, parent):
         },
     )
     assert new_login.status_code == 200
+
+
+def test_logout_revokes_refresh_token(client: TestClient, db: Session):
+    email = "logout.revoke@example.com"
+    register(client, email)
+    activate_user(db, email)
+
+    tokens = login(client, email).json()
+    access_token = tokens["access_token"]
+    refresh_token = tokens["refresh_token"]
+
+    logout_res = client.post(
+        "/api/auth/logout",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert logout_res.status_code == 204
+
+    user = db.scalars(select(User).where(User.email == email)).one()
+    assert user.token_version == 1
+
+    # Old refresh token must be rejected after logout
+    refresh_res = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+    assert refresh_res.status_code == 401
+
+    # Logging in again issues a fresh refresh token tied to the bumped token_version
+    new_tokens = login(client, email).json()
+    assert (
+        client.post(
+            "/api/auth/refresh",
+            json={"refresh_token": new_tokens["refresh_token"]},
+        ).status_code
+        == 200
+    )
+
+
+def test_password_change_revokes_refresh_token(client: TestClient, db: Session):
+    email = "password.revoke@example.com"
+    register(client, email)
+    activate_user(db, email)
+
+    tokens = login(client, email).json()
+    old_refresh = tokens["refresh_token"]
+
+    change_res = client.patch(
+        "/api/auth/password",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        json={
+            "current_password": PASSWORD,
+            "new_password": "BrandNewPassword123!",
+        },
+    )
+    assert change_res.status_code == 204
+
+    refresh_res = client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
+    assert refresh_res.status_code == 401
+
+
+def test_register_concurrent_integrity_error_returns_409(client: TestClient, db: Session):
+    with (
+        patch("app.modules.auth.service.get_user_by_email", return_value=None),
+        patch.object(
+            db,
+            "flush",
+            side_effect=IntegrityError("INSERT INTO users ...", {}, Exception("duplicate key")),
+        ),
+    ):
+        response = register(client, "race.condition@example.com")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "User with this email already exists"
+
+
+def test_decode_token_requires_mandatory_claims(client: TestClient):
+    # Token missing 'type' and 'exp' must be rejected by jwt.decode require options
+    incomplete_token = jwt.encode(
+        {"sub": "00000000-0000-0000-0000-000000000001"},
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+    with pytest.raises(jwt.PyJWTError):
+        decode_token(incomplete_token, expected_type="refresh")
+
+    response = client.post("/api/auth/refresh", json={"refresh_token": incomplete_token})
+    assert response.status_code == 401
+
+
+def test_auth_settings_rejects_missing_or_short_secret(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    with pytest.raises(ValidationError):
+        AuthSettings(_env_file=None)
+
+    monkeypatch.setenv("JWT_SECRET_KEY", "too-short-secret")
+    with pytest.raises(ValidationError):
+        AuthSettings(_env_file=None)
