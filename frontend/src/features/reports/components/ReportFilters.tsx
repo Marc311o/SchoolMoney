@@ -69,25 +69,21 @@ export default function ReportFilters({
             alignItems: 'start',
           }}
         >
-          <TextField
-            select
-            fullWidth
-            label="Report type"
-            value={scope}
-            onChange={(event) =>
-              onScopeChange(event.target.value as ReportScope)
-            }
-          >
-            <MenuItem value="child">Child report</MenuItem>
-
-            <MenuItem value="class" disabled={!hasTreasurerAccess}>
-              Class report
-            </MenuItem>
-
-            <MenuItem value="fundraiser" disabled={!hasTreasurerAccess}>
-              Fundraiser report
-            </MenuItem>
-          </TextField>
+          {hasTreasurerAccess && (
+            <TextField
+              select
+              fullWidth
+              label="Report type"
+              value={scope}
+              onChange={(event) =>
+                onScopeChange(event.target.value as ReportScope)
+              }
+            >
+              <MenuItem value="child">Child report</MenuItem>
+              <MenuItem value="class">Class report</MenuItem>
+              <MenuItem value="fundraiser">Fundraiser report</MenuItem>
+            </TextField>
+          )}
 
           {scope === 'child' && (
             <TextField
@@ -105,25 +101,27 @@ export default function ReportFilters({
             </TextField>
           )}
 
-          {(scope === 'class' || scope === 'fundraiser') && (
-            <TextField
-              select
-              fullWidth
-              label="Select class"
-              value={scope === 'class' ? subjectId : selectedClassId}
-              onChange={(event) => onClassChange(event.target.value)}
-            >
-              {classes.map((item) => (
-                <MenuItem key={item.id} value={item.id}>
-                  {item.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
+          {hasTreasurerAccess &&
+            (scope === 'class' || scope === 'fundraiser') && (
+              <TextField
+                select
+                fullWidth
+                label="Select class"
+                value={scope === 'class' ? subjectId : selectedClassId}
+                onChange={(event) => onClassChange(event.target.value)}
+              >
+                {classes.map((item) => (
+                  <MenuItem key={item.id} value={item.id}>
+                    {item.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
 
-          {scope === 'fundraiser' &&
+          {hasTreasurerAccess &&
+            scope === 'fundraiser' &&
             selectedClassId &&
-            fundraisersPending === false &&
+            !fundraisersPending &&
             !fundraisersError &&
             fundraisers.length > 0 && (
               <TextField
@@ -148,19 +146,14 @@ export default function ReportFilters({
           </Alert>
         )}
 
-        {!hasTreasurerAccess && !classesError && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Class and fundraiser reports are available to class treasurers.
-          </Alert>
-        )}
-
         {scope === 'child' && childList.length === 0 && (
           <Alert severity="info" sx={{ mt: 2 }}>
             You don't have any children assigned to your account.
           </Alert>
         )}
 
-        {scope === 'fundraiser' &&
+        {hasTreasurerAccess &&
+          scope === 'fundraiser' &&
           selectedClassId &&
           !fundraisersPending &&
           !fundraisersError &&
@@ -170,7 +163,7 @@ export default function ReportFilters({
             </Alert>
           )}
 
-        {scope === 'fundraiser' && fundraisersError && (
+        {hasTreasurerAccess && scope === 'fundraiser' && fundraisersError && (
           <Alert severity="error" sx={{ mt: 2 }}>
             Could not load fundraisers. Please try again.
           </Alert>
