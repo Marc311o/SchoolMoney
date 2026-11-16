@@ -10,12 +10,13 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import PersonRemoveOutlined from '@mui/icons-material/PersonRemoveOutlined'
 
 import AppAvatar from '@/components/AppAvatar'
 import WhiteCard from '@/components/WhiteCard'
 import AppButtonOutlined from '@/components/AppButtonOutlined'
-import type { ClassMemberWithParent } from '@/features/classes/api'
+import type { ClassMemberWithParent, UserSummary } from '@/features/classes/api'
 import { formatDate } from '@/lib/dates'
 import { shortName, fullName } from '@/lib/names.ts'
 import EmptyState from '@/components/EmptyState'
@@ -39,6 +40,8 @@ interface ClassChildrenListProps {
   /** Show the Remove column (treasurer only) */
   showRemove?: boolean
   onRemove?: (member: ClassMemberWithParent) => void
+  onMessageParent?: (parent: UserSummary) => void
+  messagingParentId?: string | null
 }
 
 export function ClassChildrenList({
@@ -47,6 +50,8 @@ export function ClassChildrenList({
   emptyText,
   showRemove = false,
   onRemove,
+  onMessageParent,
+  messagingParentId = null,
 }: ClassChildrenListProps) {
   const FUNDRAISER_CHILDREN_LIMIT = 5
   const theme = useTheme()
@@ -96,6 +101,8 @@ export function ClassChildrenList({
             compact={compact}
             showRemove={showRemove}
             onRemove={onRemove}
+            onMessageParent={onMessageParent}
+            isMessaging={messagingParentId === member.parent.id}
           />
         ))}
       </Box>
@@ -127,6 +134,8 @@ function ChildRow({
   compact,
   showRemove,
   onRemove,
+  onMessageParent,
+  isMessaging,
 }: {
   member: ClassMemberWithParent
   isMine: boolean
@@ -134,6 +143,8 @@ function ChildRow({
   compact: boolean
   showRemove: boolean
   onRemove?: (member: ClassMemberWithParent) => void
+  onMessageParent?: (parent: UserSummary) => void
+  isMessaging: boolean
 }) {
   const childFullName = fullName(member.child)
   const parentFullName = fullName(member.parent)
@@ -183,6 +194,21 @@ function ChildRow({
         <Typography sx={{ fontSize: 14 }} noWrap title={parentFullName}>
           {isMine ? 'You' : compact ? shortName(member.parent) : parentFullName}
         </Typography>
+        {!isMine && onMessageParent && (
+          <Tooltip title={`Text ${parentFullName}`}>
+            <span>
+              <IconButton
+                size="small"
+                aria-label={`Text ${parentFullName}`}
+                disabled={isMessaging}
+                onClick={() => onMessageParent(member.parent)}
+                sx={{ color: 'primary.main' }}
+              >
+                <ChatBubbleOutlineRoundedIcon sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
       </Stack>
 
       <Typography
