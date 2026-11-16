@@ -1,4 +1,5 @@
 import {
+  Badge,
   Box,
   Divider,
   Drawer,
@@ -31,6 +32,7 @@ interface SidebarProps {
   items: SidebarItem[]
   activePath: string
   user: SidebarUser
+  unreadChatCount?: number
   onNavigate: (path: string) => void
   onLogout?: () => void
   title?: string
@@ -43,6 +45,7 @@ export default function Sidebar({
   items,
   activePath,
   user,
+  unreadChatCount = 0,
   onNavigate,
   onLogout,
   title = 'SchoolMoney',
@@ -127,18 +130,30 @@ export default function Sidebar({
           const isActive =
             activePath === item.path ||
             (item.path !== '/' && activePath.startsWith(`${item.path}/`))
+          const badgeCount = item.path === '/chat' ? unreadChatCount : 0
+          const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount)
 
           return (
             <Tooltip
               key={item.path}
-              title={isCompact ? item.label : ''}
+              title={
+                isCompact
+                  ? badgeCount > 0
+                    ? `${item.label} (${badgeLabel})`
+                    : item.label
+                  : ''
+              }
               placement="right"
               arrow
             >
               <ListItemButton
                 selected={isActive}
                 onClick={() => onNavigate(item.path)}
-                aria-label={item.label}
+                aria-label={
+                  badgeCount > 0
+                    ? `${item.label}, ${badgeLabel} unread`
+                    : item.label
+                }
                 sx={{
                   minHeight: 48,
                   px: isCompact ? 0 : 1.5,
@@ -175,10 +190,49 @@ export default function Sidebar({
                       color: 'inherit',
                     }}
                   >
-                    {item.icon}
+                    <Badge
+                      badgeContent={badgeCount}
+                      max={99}
+                      color="error"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          fontSize: 10,
+                          fontWeight: 700,
+                          height: 18,
+                          minWidth: 18,
+                        },
+                      }}
+                    >
+                      {item.icon}
+                    </Badge>
                   </ListItemIcon>
                 ) : (
-                  <ListItemText primary={item.label} />
+                  <>
+                    <ListItemText primary={item.label} />
+                    {badgeCount > 0 && (
+                      <Box
+                        component="span"
+                        sx={{
+                          ml: 1,
+                          px: 0.9,
+                          py: 0.15,
+                          minWidth: 22,
+                          height: 20,
+                          borderRadius: 999,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: 'primary.contrastText',
+                          color: 'primary.dark',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {badgeLabel}
+                      </Box>
+                    )}
+                  </>
                 )}
               </ListItemButton>
             </Tooltip>
