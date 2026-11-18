@@ -21,6 +21,7 @@ from app.modules.auth.service import (
     authenticate_user,
     change_user_password,
     confirm_password_reset,
+    logout_user,
     refresh_user_tokens,
     register_user,
     request_password_reset,
@@ -73,6 +74,16 @@ def refresh(data: RefreshTokenRequest, db: DbSession) -> TokenRead:
         db=db,
         refresh_token=data.refresh_token,
     )
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout and revoke existing tokens",
+)
+def logout(user: CurrentUser, db: DbSession) -> Response:
+    logout_user(db=db, user=user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

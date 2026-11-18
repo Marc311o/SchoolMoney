@@ -71,9 +71,17 @@ export function useLogout() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-  return () => {
-    tokenStorage.clear()
-    queryClient.clear()
-    navigate('/login', { replace: true })
+  return async () => {
+    try {
+      if (tokenStorage.getAccess() !== null) {
+        await api.post('/auth/logout')
+      }
+    } catch {
+      // Ignore network/401 errors so local logout always succeeds
+    } finally {
+      tokenStorage.clear()
+      queryClient.clear()
+      navigate('/login', { replace: true })
+    }
   }
 }

@@ -20,24 +20,40 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return password_hasher.verify(plain_password, hashed_password)
 
 
+def _create_token(
+    subject: str | Any,
+    token_type: str,
+    expires_delta: timedelta,
+    *,
+    token_version: int = 0,
+) -> str:
+    expire = datetime.now(UTC) + expires_delta
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "type": token_type,
+        "ver": token_version,
+    }
+    return jwt.encode(
+        to_encode,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+
 def create_access_token(
     subject: str | Any,
     expires_delta: timedelta | None = None,
     *,
     token_version: int = 0,
 ) -> str:
-    if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
-    else:
-        expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-
-    to_encode = {
-        "exp": expire,
-        "sub": str(subject),
-        "type": "access",
-        "ver": token_version,
-    }
-    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    delta = expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return _create_token(
+        subject,
+        "access",
+        delta,
+        token_version=token_version,
+    )
 
 
 def create_refresh_token(
@@ -46,22 +62,22 @@ def create_refresh_token(
     *,
     token_version: int = 0,
 ) -> str:
-    if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
-    else:
-        expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-
-    to_encode = {
-        "exp": expire,
-        "sub": str(subject),
-        "type": "refresh",
-        "ver": token_version,
-    }
-    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    delta = expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return _create_token(
+        subject,
+        "refresh",
+        delta,
+        token_version=token_version,
+    )
 
 
 def decode_token(token: str, expected_type: str = "access") -> dict[str, Any]:
-    payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    payload = jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+        options={"require": ["exp", "sub", "type"]},
+    )
     token_type = payload.get("type")
     if token_type != expected_type:
         raise jwt.InvalidTokenError(

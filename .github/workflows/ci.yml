@@ -26,6 +26,7 @@ jobs:
       POSTGRES_PASSWORD: schoolmoney
       POSTGRES_DB: schoolmoney
       POSTGRES_HOST: localhost
+      JWT_SECRET_KEY: ci-test-secret-key-at-least-32-bytes-long
       S3_ENDPOINT_URL: http://localhost:3900
       S3_PUBLIC_BASE_URL: http://localhost:3900
       S3_REGION: garage

@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 import jwt
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.accounts.enums import AccountType
@@ -60,7 +61,14 @@ def register_user(db: Session, data: UserRegister) -> User:
     )
 
     db.add(user)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists",
+        ) from None
 
     account = Account(
         id=uuid4(),
@@ -82,7 +90,14 @@ def register_user(db: Session, data: UserRegister) -> User:
             + timedelta(minutes=settings.ACCOUNT_ACTIVATION_EXPIRE_MINUTES),
         )
     )
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists",
+        ) from None
 
     activation_url = (
         urlsplit(str(settings.ACCOUNT_ACTIVATION_URL))
@@ -99,7 +114,15 @@ def register_user(db: Session, data: UserRegister) -> User:
             detail="Could not send activation email",
         ) from None
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists",
+        ) from None
+
     db.refresh(user)
 
     return user
@@ -230,6 +253,13 @@ def refresh_user_tokens(db: Session, refresh_token: str) -> TokenRead:
         ),
         token_type="bearer",
     )
+
+
+def logout_user(db: Session, user: User) -> None:
+    db.refresh(user, with_for_update=True)
+    user.token_version += 1
+    user.updated_at = datetime.now(UTC)
+    db.commit()
 
 
 def change_user_password(
