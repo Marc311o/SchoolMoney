@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
-export type ReportScope = 'fundraiser' | 'child' | 'class'
+export type ReportScope = 'fundraiser' | 'child' | 'class' | 'system'
 export type ReportLanguage = 'pl' | 'en'
 export type ReportFormat = 'csv' | 'pdf'
 
@@ -57,9 +57,12 @@ export async function downloadReport(
     lang,
   })
 
-  const blob = await api.getBlob(
-    `/reports/${scope}/${subjectId}/export?${params.toString()}`,
-  )
+  const endpoint =
+    scope === 'system'
+      ? `/admin/report/export?${params.toString()}`
+      : `/reports/${scope}/${subjectId}/export?${params.toString()}`
+
+  const blob = await api.getBlob(endpoint)
 
   const mimeType =
     format === 'csv' ? 'text/csv;charset=utf-8' : 'application/pdf'
@@ -72,7 +75,10 @@ export async function downloadReport(
 
   const link = document.createElement('a')
   link.href = url
-  link.download = `${scope}-${subjectId}.${format}`
+  link.download =
+    scope === 'system'
+      ? `system-report.${format}`
+      : `${scope}-${subjectId}.${format}`
 
   document.body.appendChild(link)
   link.click()
