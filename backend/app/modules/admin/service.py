@@ -8,7 +8,12 @@ from sqlalchemy import Select, distinct, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.common.schemas import Page
-from app.modules.admin.schemas import AdminClassRead, AdminFundraiserRead, AdminUserRead
+from app.modules.admin.schemas import (
+    AdminClassRead,
+    AdminFundraiserRead,
+    AdminOverviewRead,
+    AdminUserRead,
+)
 from app.modules.children.models import Child
 from app.modules.children.schemas import ChildSummaryRead
 from app.modules.classrooms.models import SchoolClass
@@ -16,6 +21,7 @@ from app.modules.classrooms.schemas import SchoolClassRead
 from app.modules.fundraisers.enums import FundraiserStatus
 from app.modules.fundraisers.models import Fundraiser, FundraiserObligation, FundraiserPayment
 from app.modules.fundraisers.schemas import FundraiserBlockUpdate, FundraiserRead
+from app.modules.reports.service import get_system_report
 from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from app.modules.users.schemas import UserRead, UserStatusUpdate, UserSummaryRead
@@ -243,3 +249,34 @@ def set_fundraiser_blocked(
     [row] = _fundraiser_rows(db, [fundraiser])
     db.commit()
     return row
+
+
+def get_overview(db: Session, admin: User) -> AdminOverviewRead:
+    """Platform counters together with the system-wide financial report."""
+    report = get_system_report(db, admin)
+    parents_count = (
+        db.scalar(select(func.count()).select_from(User).where(User.role == UserRole.PARENT)) or 0
+    )
+    treasurers_count = (
+        db.scalar(
+            select(func.count(distinct(SchoolClass.treasurer_id))).where(
+                SchoolClass.treasurer_id.is_not(None)
+            )
+        )
+        or 0
+    )
+    active_fundraisers_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(Fundraiser)
+            .where(Fundraiser.status == FundraiserStatus.ACTIVE)
+        )
+        or 0
+    )
+    return AdminOverviewRead(
+        parents_count=parents_count,
+        treasurers_count=treasurers_count,
+        classes_count=len(report.rows),
+        active_fundraisers_count=active_fundraisers_count,
+        report=report,
+    )
