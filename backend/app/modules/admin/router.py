@@ -1,18 +1,21 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.common.schemas import Page
 from app.core.database import get_db
 from app.modules.admin import service
-from app.modules.admin.schemas import AdminFundraiserRead, AdminUserRead
+from app.modules.admin.schemas import AdminFundraiserRead, AdminOverviewRead, AdminUserRead
 from app.modules.auth.dependencies import get_current_admin
 from app.modules.chat import service as chat_service
 from app.modules.chat.schemas import ChatRead
 from app.modules.fundraisers.enums import FundraiserStatus
 from app.modules.fundraisers.schemas import FundraiserBlockUpdate
+from app.modules.reports.export import export_csv, export_pdf
+from app.modules.reports.schemas import ReportLanguage
+from app.modules.reports.service import get_system_report
 from app.modules.users.enums import UserStatus
 from app.modules.users.models import User
 from app.modules.users.schemas import UserStatusUpdate
@@ -21,6 +24,52 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_cu
 
 DbSession = Annotated[Session, Depends(get_db)]
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]
+
+
+@router.get(
+    "/overview",
+    response_model=AdminOverviewRead,
+    summary="Platform summary and aggregated system-wide financial report (admin only)",
+)
+def read_admin_overview(admin: CurrentAdmin, db: DbSession) -> AdminOverviewRead:
+    return service.get_overview(db, admin)
+
+
+@router.get(
+    "/report/export",
+    response_class=Response,
+    summary="Download aggregated system-wide financial report (admin only)",
+    responses={
+        200: {
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+            }
+        }
+    },
+)
+def download_admin_system_report(
+    admin: CurrentAdmin,
+    db: DbSession,
+    file_format: Annotated[Literal["csv", "pdf"], Query(alias="format")],
+    lang: Annotated[ReportLanguage, Query(description="Language of the exported report")] = "pl",
+) -> Response:
+    report = get_system_report(db, admin)
+
+    if file_format == "csv":
+        content, media_type = export_csv(report, lang=lang), "application/octet-stream"
+    else:
+        content, media_type = export_pdf(report, lang=lang), "application/pdf"
+
+    return Response(
+        content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="system-report.{file_format}"',
+            "Content-Language": lang,
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get(
