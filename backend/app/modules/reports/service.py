@@ -28,10 +28,15 @@ from app.modules.reports.schemas import (
 from app.modules.users.enums import UserRole
 from app.modules.users.models import User
 
+SYSTEM_REPORT_ID = UUID("00000000-0000-0000-0000-000000000000")
+
 
 def _contribution_rows(
     db: Session, fundraiser_ids: list[UUID], child_id: UUID | None
 ) -> dict[UUID, list[ReportRow]]:
+    if not fundraiser_ids:
+        return defaultdict(list)
+
     refund = aliased(Transaction)
     obligations = (
         select(
@@ -97,7 +102,18 @@ def _sum_contributions(rows: list[ReportRow]) -> ContributionTotals:
     )
 
 
+def _sum_accounts(accounts: list[AccountTotals]) -> AccountTotals:
+    return AccountTotals(
+        current_balance=sum((item.current_balance for item in accounts), ZERO),
+        treasurer_deposited_total=sum((item.treasurer_deposited_total for item in accounts), ZERO),
+        treasurer_withdrawn_total=sum((item.treasurer_withdrawn_total for item in accounts), ZERO),
+    )
+
+
 def _account_totals(db: Session, fundraisers: list[Fundraiser]) -> dict[UUID, AccountTotals]:
+    if not fundraisers:
+        return {}
+
     statement = (
         select(
             TreasurerOperation.fundraiser_id,
@@ -130,6 +146,9 @@ def _load_fundraisers(db: Session, statement: Select[tuple[Fundraiser]]) -> list
 
 
 def get_report(db: Session, user: User, scope: ReportScope, subject_id: UUID) -> FinancialReport:
+    if scope == "system":
+        return get_system_report(db, user)
+
     is_admin = user.role == UserRole.ADMIN
     statement = select(Fundraiser)
     child_id = None
@@ -186,17 +205,7 @@ def get_report(db: Session, user: User, scope: ReportScope, subject_id: UUID) ->
             )
             for fundraiser in sorted(fundraisers, key=lambda f: (f.start_date, f.id))
         ]
-        account = None
-        if scope == "class":
-            account = AccountTotals(
-                current_balance=sum((item.current_balance for item in accounts.values()), ZERO),
-                treasurer_deposited_total=sum(
-                    (item.treasurer_deposited_total for item in accounts.values()), ZERO
-                ),
-                treasurer_withdrawn_total=sum(
-                    (item.treasurer_withdrawn_total for item in accounts.values()), ZERO
-                ),
-            )
+        account = _sum_accounts(list(accounts.values())) if scope == "class" else None
 
     return FinancialReport(
         scope=scope,
@@ -204,5 +213,57 @@ def get_report(db: Session, user: User, scope: ReportScope, subject_id: UUID) ->
         name=name,
         contributions=_sum_contributions(rows),
         account=account,
+        rows=rows,
+    )
+
+
+def get_system_report(db: Session, user: User) -> FinancialReport:
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required")
+
+    classes = list(db.scalars(select(SchoolClass).order_by(SchoolClass.name, SchoolClass.id)))
+    fundraisers = _load_fundraisers(
+        db,
+        select(Fundraiser)
+        .where(Fundraiser.status != FundraiserStatus.DRAFT)
+        .options(selectinload(Fundraiser.account)),
+    )
+
+    groups = _contribution_rows(db, [fundraiser.id for fundraiser in fundraisers], None)
+    accounts = _account_totals(db, fundraisers)
+
+    fundraisers_by_class: dict[UUID, list[Fundraiser]] = defaultdict(list)
+    for fundraiser in fundraisers:
+        fundraisers_by_class[fundraiser.class_id].append(fundraiser)
+
+    rows: list[ReportRow] = []
+    for school_class in classes:
+        class_fundraisers = fundraisers_by_class[school_class.id]
+        class_contribution_rows = [
+            row for fundraiser in class_fundraisers for row in groups[fundraiser.id]
+        ]
+        class_accounts = [
+            accounts[fundraiser.id] for fundraiser in class_fundraisers if fundraiser.id in accounts
+        ]
+        label = (
+            f"{school_class.name} ({school_class.school_name})"
+            if school_class.school_name
+            else school_class.name
+        )
+        rows.append(
+            ReportRow(
+                id=school_class.id,
+                name=label,
+                contributions=_sum_contributions(class_contribution_rows),
+                account=_sum_accounts(class_accounts),
+            )
+        )
+
+    return FinancialReport(
+        scope="system",
+        id=SYSTEM_REPORT_ID,
+        name="SchoolMoney",
+        contributions=_sum_contributions(rows),
+        account=_sum_accounts([row.account for row in rows if row.account is not None]),
         rows=rows,
     )
