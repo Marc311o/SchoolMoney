@@ -5,6 +5,7 @@ from app.common.schemas import SchemaBase
 from app.modules.children.schemas import ChildSummaryRead
 from app.modules.classrooms.schemas import SchoolClassRead
 from app.modules.fundraisers.schemas import FundraiserRead
+from app.modules.reports.schemas import FinancialReport
 from app.modules.users.schemas import UserRead, UserSummaryRead
 
 
@@ -31,3 +32,13 @@ class AdminFundraiserRead(FundraiserRead):
     children_count: int
     paid_count: int
     balance: Decimal
+
+
+class AdminOverviewRead(SchemaBase):
+    """System-wide metrics and financial report for the admin overview page."""
+
+    parents_count: int
+    treasurers_count: int
+    classes_count: int
+    active_fundraisers_count: int
+    report: FinancialReport
