@@ -18,7 +18,7 @@ interface ReportTableProps {
 }
 
 export default function ReportTable({ rows, scope }: ReportTableProps) {
-  const showAccount = scope === 'class'
+  const showAccount = scope === 'class' || scope === 'system'
 
   const moneyCellSx = {
     fontFamily: 'monospace',
@@ -38,7 +38,11 @@ export default function ReportTable({ rows, scope }: ReportTableProps) {
         <TableHead>
           <TableRow>
             <TableCell>
-              {scope === 'fundraiser' ? 'Child' : 'Fundraiser'}
+              {scope === 'fundraiser'
+                ? 'Child'
+                : scope === 'system'
+                  ? 'Class'
+                  : 'Fundraiser'}
             </TableCell>
             <TableCell align="right">Expected</TableCell>
             <TableCell align="right">Paid</TableCell>
