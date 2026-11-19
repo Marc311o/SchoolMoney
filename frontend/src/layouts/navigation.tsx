@@ -26,6 +26,7 @@ export const PARENT_NAV: SidebarItem[] = [
 ]
 
 export const ADMIN_NAV: SidebarItem[] = [
+  { label: 'Overview', path: '/admin/overview', icon: <HomeRoundedIcon /> },
   { label: 'Users', path: '/admin/users', icon: <ManageAccountsRoundedIcon /> },
   {
     label: 'Fundraisers',
@@ -37,5 +38,5 @@ export const ADMIN_NAV: SidebarItem[] = [
 
 /** Where a signed-in user lands: administrators have their own area */
 export function homePath(user: Pick<User, 'role'>): string {
-  return user.role === 'ADMIN' ? '/admin/users' : '/'
+  return user.role === 'ADMIN' ? '/admin/overview' : '/'
 }
