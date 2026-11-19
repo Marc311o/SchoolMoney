@@ -21,6 +21,7 @@ import { RequireRole } from '@/features/auth/components/RequireRole.tsx'
 import { AdminUsersPage } from '@/features/admin/pages/AdminUserPage.tsx'
 import { AdminFundraisersPage } from '@/features/admin/pages/AdminFundraisersPage.tsx'
 import { AdminMessagesPage } from '@/features/admin/pages/AdminMessagesPage.tsx'
+import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage.tsx'
 import FundraiserPage from '@/features/fundraisers/pages/FundraiserPage'
 
 export const router = createBrowserRouter([
@@ -76,7 +77,8 @@ export const router = createBrowserRouter([
           {
             element: <AppLayout items={ADMIN_NAV} />,
             children: [
-              { index: true, element: <Navigate to="users" replace /> },
+              { index: true, element: <Navigate to="overview" replace /> },
+              { path: 'overview', element: <AdminOverviewPage /> },
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'fundraisers', element: <AdminFundraisersPage /> },
               { path: 'messages', element: <AdminMessagesPage /> },
