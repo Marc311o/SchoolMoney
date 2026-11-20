@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 
 import { api, ApiError } from '@/lib/api'
+import type { FinancialReport } from '@/features/reports/api'
 
 export type AccountStatus = 'ACTIVE' | 'BLOCKED' | 'PENDING_ACTIVATION'
 
@@ -74,11 +75,27 @@ export type FundraiserFilters = {
 
 export const adminKeys = {
   all: ['admin'] as const,
+  overview: () => [...adminKeys.all, 'overview'] as const,
   users: () => [...adminKeys.all, 'users'] as const,
   userList: (filters: UserFilters) => [...adminKeys.users(), filters] as const,
   fundraisers: () => [...adminKeys.all, 'fundraisers'] as const,
   fundraiserList: (filters: FundraiserFilters) =>
     [...adminKeys.fundraisers(), filters] as const,
+}
+
+export type AdminOverview = {
+  parents_count: number
+  treasurers_count: number
+  classes_count: number
+  active_fundraisers_count: number
+  report: FinancialReport
+}
+
+export function useAdminOverview() {
+  return useQuery<AdminOverview, ApiError>({
+    queryKey: adminKeys.overview(),
+    queryFn: () => api.get<AdminOverview>('/admin/overview'),
+  })
 }
 
 export function useAdminUsers(filters: UserFilters) {

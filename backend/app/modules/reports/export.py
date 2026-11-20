@@ -22,6 +22,7 @@ class ReportLabels:
     titles: dict[ReportScope, str]
     child: str
     fundraiser: str
+    school_class: str
     contribution_columns: tuple[str, str, str, str]
     account_columns: tuple[str, str, str]
     total: str
@@ -38,9 +39,11 @@ REPORT_LABELS: dict[ReportLanguage, ReportLabels] = {
             "fundraiser": "Raport zbiórki",
             "child": "Raport dziecka",
             "class": "Raport klasy",
+            "system": "Raport systemowy",
         },
         child="Dziecko",
         fundraiser="Zbiórka",
+        school_class="Klasa",
         contribution_columns=("Należne", "Wpłaty", "Zwroty", "Wpłaty po zwrotach"),
         account_columns=("Wpłaty skarbnika", "Wypłaty skarbnika", "Saldo"),
         total="Razem",
@@ -55,9 +58,11 @@ REPORT_LABELS: dict[ReportLanguage, ReportLabels] = {
             "fundraiser": "Fundraiser report",
             "child": "Child report",
             "class": "Class report",
+            "system": "System report",
         },
         child="Child",
         fundraiser="Fundraiser",
+        school_class="Class",
         contribution_columns=("Amount due", "Payments", "Refunds", "Paid after refunds"),
         account_columns=("Treasurer deposits", "Treasurer withdrawals", "Balance"),
         total="Total",
@@ -93,9 +98,15 @@ def _amounts(row: ReportRow) -> list[str]:
 def _report_table(
     report: FinancialReport, labels: ReportLabels, total_label: str
 ) -> tuple[tuple[str, ...], list[list[str]]]:
-    label = labels.child if report.scope == "fundraiser" else labels.fundraiser
+    if report.scope == "fundraiser":
+        label = labels.child
+    elif report.scope == "system":
+        label = labels.school_class
+    else:
+        label = labels.fundraiser
+
     columns = (label, *labels.contribution_columns)
-    if report.scope == "class":
+    if report.scope in ("class", "system"):
         columns += labels.account_columns
 
     amount_count = len(columns) - 1
@@ -215,10 +226,10 @@ def export_pdf(report: FinancialReport, lang: ReportLanguage = "pl") -> bytes:
 
     output = BytesIO()
     title = labels.titles[report.scope]
-    is_class = report.scope == "class"
+    is_wide = report.scope in ("class", "system")
     document = SimpleDocTemplate(
         output,
-        pagesize=landscape(A4) if is_class else A4,
+        pagesize=landscape(A4) if is_wide else A4,
         leftMargin=36,
         rightMargin=36,
         topMargin=36,
@@ -256,7 +267,7 @@ def export_pdf(report: FinancialReport, lang: ReportLanguage = "pl") -> bytes:
         story.append(Spacer(1, 16))
 
     columns, rows = _report_table(report, labels, labels.total)
-    widths = [174, 74, 74, 74, 74, 102, 102, 74] if is_class else [208, 74, 74, 74, 74]
+    widths = [174, 74, 74, 74, 74, 102, 102, 74] if is_wide else [208, 74, 74, 74, 74]
     story.append(
         _pdf_table(
             columns, rows, widths, highlight_total=True, decimal_separator=labels.decimal_separator
