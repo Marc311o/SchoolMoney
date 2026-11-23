@@ -39,11 +39,11 @@ export function Conversation({
   const deleteMessage = useDeleteMessage(chatId)
   const { mutate: markRead } = useMarkChatRead(chatId)
 
-  const last = messages.data?.at(-1)
+  const lastMessageId = messages.data?.at(-1)?.id ?? chat.data?.last_message?.id
 
   useEffect(() => {
-    if (last && last.sender?.id !== myId) markRead()
-  }, [last, myId, markRead])
+    if (lastMessageId) markRead()
+  }, [lastMessageId, markRead])
 
   if (isChatNotFound(chat.error) || isChatNotFound(messages.error)) {
     return (
