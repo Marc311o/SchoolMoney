@@ -13,7 +13,6 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { WalletPage } from '@/features/wallet/pages/WalletPage'
 import { AppLayout } from '@/layouts/AppLayout.tsx'
 import { AuthLayout } from '@/layouts/AuthLayout'
-import { NotFoundPage } from '@/pages/NotFoundPage'
 import { GuestOnly } from '@/features/auth/components/GuestOnly.tsx'
 import { RequireAuth } from '@/features/auth/components/RequireAuth.tsx'
 import { ADMIN_NAV, PARENT_NAV } from '@/layouts/navigation.tsx'
@@ -87,8 +86,8 @@ export const router = createBrowserRouter([
           },
         ],
       },
+
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-
-  { path: '*', element: <NotFoundPage /> },
 ])
