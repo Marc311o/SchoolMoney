@@ -160,11 +160,6 @@ export default function AddChildDialog({
             size="small"
           />
 
-          <Typography variant="caption" color="text.secondary">
-            Added a child you removed earlier? The same name and birth date
-            bring back their history.
-          </Typography>
-
           {apiErrors.general && (
             <Typography color="error" variant="body2" sx={{ fontSize: 14 }}>
               {String(apiErrors.general)}
