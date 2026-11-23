@@ -43,7 +43,7 @@ export function DashboardPage() {
 
   return (
     <Stack spacing={3} sx={{ p: '1em', px: { xs: 2, md: 4 } }}>
-      <PageHeader title="Dashboard" subtitle="Description here." />
+      <PageHeader title="Dashboard" />
 
       <PageSection
         title="My active fundraisers"
