@@ -55,25 +55,6 @@ export type SchoolClassCreate = {
   school_year?: string | null
 }
 
-export type ParentSearchResult = {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  avatar_url: string | null
-}
-
-export type ClassInviteCreate = {
-  parent_id: string
-}
-
-export type ClassInviteSent = {
-  message: string
-  class_id: string
-  parent_id: string
-  email: string
-  sent_at: string
-}
 /** PATCH /classes/{id}/members/{membership_id}: approve or reject a PENDING child */
 export type MembershipReviewStatus = 'ACTIVE' | 'REJECTED'
 
@@ -216,6 +197,7 @@ export function useReviewMembership(classId: string) {
       ]),
   })
 }
+
 /**
  * Takes a child out of the class (status LEFT). The treasurer can remove anyone,
  * a parent only their own child. Payments and history stay.
@@ -234,25 +216,6 @@ export function useRemoveMembership(classId: string) {
       // the removed child may be one of mine: its card shows the class
       void queryClient.invalidateQueries({ queryKey: ['children'] })
     },
-  })
-}
-
-export function useSearchParents(email: string) {
-  return useQuery<ParentSearchResult[], ApiError>({
-    queryKey: ['users', 'search', email],
-    queryFn: () =>
-      api.get<ParentSearchResult[]>(
-        `/users/search?email=${encodeURIComponent(email)}`,
-      ),
-    enabled: email.trim().length >= 2,
-    retry: false,
-  })
-}
-
-export function useSendClassInvite(classId: string) {
-  return useMutation<ClassInviteSent, ApiError, ClassInviteCreate>({
-    mutationFn: (payload) =>
-      api.post<ClassInviteSent>(`/classes/${classId}/invites`, payload),
   })
 }
 

@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -10,7 +10,6 @@ from app.modules.users import service
 from app.modules.users.models import User
 from app.modules.users.schemas import (
     AdminUserEmailUpdate,
-    ParentSearchResult,
     UserRead,
     UserUpdate,
 )
@@ -20,25 +19,6 @@ router = APIRouter(prefix="/users", tags=["users"])
 CurrentUser = Annotated[User, Depends(get_current_user)]
 AdminUser = Annotated[User, Depends(get_current_admin)]
 DbSession = Annotated[Session, Depends(get_db)]
-
-
-@router.get(
-    "/search",
-    response_model=list[ParentSearchResult],
-    summary="Search parents by email",
-)
-def search_parents(
-    email: Annotated[
-        str,
-        Query(
-            min_length=2,
-            description="Email substring to search for (case-insensitive)",
-        ),
-    ],
-    _user: CurrentUser,
-    db: DbSession,
-) -> list[User]:
-    return service.search_parents_by_email(db=db, email_query=email)
 
 
 @router.get(
