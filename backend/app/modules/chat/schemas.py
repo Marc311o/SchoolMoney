@@ -37,8 +37,13 @@ class MessageRead(SchemaBase):
     deleted_at: datetime | None = None
 
 
+class ChatContactRead(UserSummaryRead):
+    children: list[str] = []
+
+
 class ChatParticipantRead(SchemaBase):
     user: UserSummaryRead
+    children: list[str] = []
     last_read_at: datetime | None = None
 
 

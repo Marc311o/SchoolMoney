@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -10,6 +11,7 @@ from app.common.search import contains_ilike
 from app.modules.chat.enums import ChatKind
 from app.modules.chat.models import Chat, ChatParticipant, Message
 from app.modules.chat.schemas import (
+    ChatContactRead,
     ChatParticipantRead,
     ChatRead,
     DirectChatCreate,
@@ -67,6 +69,36 @@ def _my_class_ids(db: Session, user: User) -> list[UUID]:
     return list(db.scalars(as_treasurer.union(as_parent)))
 
 
+def _children_by_parent_in_classes(
+    db: Session, class_ids: list[UUID]
+) -> dict[tuple[UUID, UUID], list[str]]:
+    """Map (class_id, parent_id) -> sorted unique child full names in that class."""
+    if not class_ids:
+        return {}
+    rows = db.execute(
+        select(
+            ChildClassMembership.class_id,
+            Child.parent_id,
+            Child.first_name,
+            Child.last_name,
+        )
+        .join(Child, Child.id == ChildClassMembership.child_id)
+        .where(
+            ChildClassMembership.class_id.in_(class_ids),
+            ChildClassMembership.status == MembershipStatus.ACTIVE,
+            Child.deleted_at.is_(None),
+        )
+        .order_by(Child.first_name, Child.last_name)
+    ).all()
+
+    result: dict[tuple[UUID, UUID], list[str]] = defaultdict(list)
+    for class_id, parent_id, first_name, last_name in rows:
+        full = f"{first_name} {last_name}".strip()
+        if full not in result[(class_id, parent_id)]:
+            result[(class_id, parent_id)].append(full)
+    return result
+
+
 def _ensure_class_chats(db: Session, class_ids: list[UUID]) -> None:
     """Every class has a chat; it is created the first time someone looks."""
     if not class_ids:
@@ -86,22 +118,31 @@ def _ensure_class_chats(db: Session, class_ids: list[UUID]) -> None:
     )
 
 
-def _visible_chats(db: Session, user: User) -> Select[tuple[Chat]]:
+def _visible_chats(db: Session, user: User, *, include_empty: bool = False) -> Select[tuple[Chat]]:
     class_ids = _my_class_ids(db, user)
     _ensure_class_chats(db, class_ids)
     my_chats = select(ChatParticipant.chat_id).where(ChatParticipant.user_id == user.id)
+    has_messages = select(Message.id).where(Message.chat_id == Chat.id).exists()
+
+    direct_filter = and_(Chat.kind.in_((ChatKind.DIRECT, ChatKind.ADMIN)), Chat.id.in_(my_chats))
+    if not include_empty:
+        direct_filter = and_(direct_filter, has_messages)
+
     visible = [
         and_(Chat.kind == ChatKind.CLASS, Chat.class_id.in_(class_ids)),
-        and_(Chat.kind.in_((ChatKind.DIRECT, ChatKind.ADMIN)), Chat.id.in_(my_chats)),
+        direct_filter,
     ]
     if user.role == UserRole.ADMIN:
-        visible.append(Chat.kind == ChatKind.ADMIN)
+        admin_filter = Chat.kind == ChatKind.ADMIN
+        if not include_empty:
+            admin_filter = and_(admin_filter, has_messages)
+        visible.append(admin_filter)
     return select(Chat).where(or_(*visible))
 
 
 def get_visible_chat(db: Session, user: User, chat_id: UUID) -> Chat:
     """404 for chats that do not exist and for chats I may not see."""
-    chat = db.scalar(_visible_chats(db, user).where(Chat.id == chat_id))
+    chat = db.scalar(_visible_chats(db, user, include_empty=True).where(Chat.id == chat_id))
     if chat is None:
         raise _chat_not_found()
     return chat
@@ -209,6 +250,22 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
         if participant_user.id != user.id and participant_user.role != UserRole.ADMIN:
             others[chat_id] = participant_user
 
+    my_class_ids = _my_class_ids(db, user) if user.role != UserRole.ADMIN else []
+    relevant_class_ids = list(
+        {
+            *my_class_ids,
+            *(chat.class_id for chat in chats if chat.class_id is not None),
+        }
+    )
+    children_map = _children_by_parent_in_classes(db, relevant_class_ids)
+
+    shared_children_by_parent: dict[UUID, list[str]] = defaultdict(list)
+    for (c_id, p_id), names in children_map.items():
+        if c_id in my_class_ids:
+            for name in names:
+                if name not in shared_children_by_parent[p_id]:
+                    shared_children_by_parent[p_id].append(name)
+
     class_chats = [chat for chat in chats if chat.kind == ChatKind.CLASS and chat.class_id]
     class_members: dict[UUID, dict[UUID, User]] = {}
     if class_chats:
@@ -289,6 +346,7 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
             participants = [
                 ChatParticipantRead(
                     user=UserSummaryRead.model_validate(member_user),
+                    children=children_map.get((chat.class_id, member_id), []),
                     last_read_at=receipts.get(member_id, (member_user, None))[1],
                 )
                 for member_id, member_user in members_map.items()
@@ -302,6 +360,9 @@ def _summaries(db: Session, user: User, chats: list[Chat]) -> list[ChatRead]:
             participants = [
                 ChatParticipantRead(
                     user=UserSummaryRead.model_validate(p_user),
+                    children=shared_children_by_parent.get(p_user.id, [])
+                    if chat.kind == ChatKind.DIRECT
+                    else [],
                     last_read_at=p_read_at,
                 )
                 for p_user, p_read_at in receipts.values()
@@ -668,14 +729,31 @@ def open_treasurer_chat(db: Session, admin: User, treasurer_id: UUID) -> ChatRea
     return summary
 
 
-def search_contacts(db: Session, user: User, query: str, limit: int = 20) -> list[User]:
-    """Parents I can start a direct chat with: anyone active, by name."""
+def search_contacts(db: Session, user: User, query: str, limit: int = 20) -> list[ChatContactRead]:
+    """Parents and treasurers who share at least one school class with me, by name."""
+    class_ids = _my_class_ids(db, user)
+    if not class_ids:
+        return []
+
+    class_treasurers = select(SchoolClass.treasurer_id).where(SchoolClass.id.in_(class_ids))
+    class_parents = (
+        select(Child.parent_id)
+        .join(ChildClassMembership, ChildClassMembership.child_id == Child.id)
+        .where(
+            ChildClassMembership.class_id.in_(class_ids),
+            ChildClassMembership.status == MembershipStatus.ACTIVE,
+            Child.deleted_at.is_(None),
+        )
+    )
+    allowed_user_ids = class_treasurers.union(class_parents)
+
     full_name = func.concat(User.first_name, " ", User.last_name)
-    return list(
+    users = list(
         db.scalars(
             select(User)
             .where(
                 User.id != user.id,
+                User.id.in_(allowed_user_ids),
                 User.status == UserStatus.ACTIVE,
                 User.role == UserRole.PARENT,
                 contains_ilike(full_name, query.strip()),
@@ -684,3 +762,20 @@ def search_contacts(db: Session, user: User, query: str, limit: int = 20) -> lis
             .limit(limit)
         )
     )
+    if not users:
+        return []
+
+    children_map = _children_by_parent_in_classes(db, class_ids)
+    children_by_user: dict[UUID, list[str]] = defaultdict(list)
+    for (_, parent_id), names in children_map.items():
+        for name in names:
+            if name not in children_by_user[parent_id]:
+                children_by_user[parent_id].append(name)
+
+    return [
+        ChatContactRead(
+            **UserSummaryRead.model_validate(contact).model_dump(),
+            children=children_by_user.get(contact.id, []),
+        )
+        for contact in users
+    ]

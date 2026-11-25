@@ -14,6 +14,10 @@ import { tokenStorage } from '@/lib/tokens'
 
 export type ChatKind = 'CLASS' | 'DIRECT' | 'ADMIN'
 
+export type ChatContact = UserSummary & {
+  children?: string[]
+}
+
 export type ChatMessage = {
   id: string
   chat_id: string
@@ -27,6 +31,7 @@ export type ChatMessage = {
 
 export type ChatParticipant = {
   user: UserSummary
+  children?: string[]
   last_read_at: string | null
 }
 
@@ -129,14 +134,14 @@ export function useChatMessages(chatId: string) {
   })
 }
 
-/** Parents to start a direct chat with. Runs from 2 characters on. */
+/** Parents in my classes to start a direct chat with. Runs from 2 characters on. */
 export function useChatContacts(query: string) {
   const trimmed = query.trim()
 
-  return useQuery<UserSummary[], ApiError>({
+  return useQuery<ChatContact[], ApiError>({
     queryKey: chatKeys.contacts(trimmed),
     queryFn: () =>
-      api.get<UserSummary[]>(
+      api.get<ChatContact[]>(
         `/chats/contacts?${new URLSearchParams({ q: trimmed })}`,
       ),
     enabled: trimmed.length >= 2,
@@ -501,4 +506,9 @@ export function treasurerLabel(chat: ChatSummary): string | null {
     ? `Treasurer of ${chat.treasurer_classes.join(', ')}`
     : 'No longer a treasurer'
   return chat.other_user_blocked ? `${label} · blocked` : label
+}
+
+export function childrenLabel(children?: string[]): string | undefined {
+  if (!children?.length) return undefined
+  return `Parent of ${children.join(', ')}`
 }

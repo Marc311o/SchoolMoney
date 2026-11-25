@@ -10,10 +10,11 @@ import {
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 
 import AppAvatar from '@/components/AppAvatar'
-import type {
-  ChatKind,
-  ChatMessage,
-  ChatParticipant,
+import {
+  type ChatKind,
+  type ChatMessage,
+  type ChatParticipant,
+  childrenLabel,
 } from '@/features/chat/api'
 import { MessageBubble } from '@/features/chat/components/MessageBubble'
 import { dayLabel, isSameDay } from '@/lib/dates'
@@ -61,6 +62,17 @@ export function MessageList({
   const last = messages.at(-1)
   const lastId = last?.id
   const lastSenderId = last?.sender?.id
+
+  const childrenByUserId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const participant of participants) {
+      const label = childrenLabel(participant.children)
+      if (label) {
+        map.set(participant.user.id, label)
+      }
+    }
+    return map
+  }, [participants])
 
   useLayoutEffect(() => {
     const element = scrollRef.current
@@ -192,15 +204,33 @@ export function MessageList({
             previous.is_system ||
             message.is_system ||
             previous.sender?.id !== message.sender?.id
+          const mine = !message.is_system && message.sender?.id === myId
+          const showSenderMeta = kind !== 'DIRECT' && newSender
+          const childNote =
+            kind === 'CLASS' && !mine && showSenderMeta && message.sender
+              ? childrenByUserId.get(message.sender.id)
+              : undefined
           const seenUsers = seenByMessageId.get(message.id) ?? []
 
           return (
             <Fragment key={message.id}>
               {newDay && <DayDivider label={dayLabel(message.created_at)} />}
+              {childNote && (
+                <Typography
+                  sx={{
+                    fontSize: 11.5,
+                    color: 'text.secondary',
+                    pl: 5.5,
+                    mb: -0.75,
+                  }}
+                >
+                  {childNote}
+                </Typography>
+              )}
               <MessageBubble
                 message={message}
-                mine={!message.is_system && message.sender?.id === myId}
-                showName={kind !== 'DIRECT' && newSender}
+                mine={mine}
+                showName={showSenderMeta}
                 canModerate={canModerate}
                 onEdit={onEdit}
                 onDelete={onDelete}
