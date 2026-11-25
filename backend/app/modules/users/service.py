@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.common.search import contains_ilike
 from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from app.modules.users.repository import get_user_by_email, get_user_by_id
@@ -101,7 +102,7 @@ def search_parents_by_email(
             .where(
                 User.role == UserRole.PARENT,
                 User.status == UserStatus.ACTIVE,
-                User.email.ilike(f"%{clean_query}%"),
+                contains_ilike(User.email, clean_query),
             )
             .order_by(User.email)
             .limit(limit)

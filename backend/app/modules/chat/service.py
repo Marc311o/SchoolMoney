@@ -6,6 +6,7 @@ from sqlalchemy import Select, and_, distinct, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.orm import Session
 
+from app.common.search import contains_ilike
 from app.modules.chat.enums import ChatKind
 from app.modules.chat.models import Chat, ChatParticipant, Message
 from app.modules.chat.schemas import (
@@ -358,7 +359,7 @@ def list_chats(
                     .where(
                         Message.chat_id.in_(chat_ids),
                         Message.deleted_at.is_(None),
-                        Message.content.ilike(f"%{raw_query}%"),
+                        contains_ilike(Message.content, raw_query),
                     )
                 ).all()
             )
@@ -677,7 +678,7 @@ def search_contacts(db: Session, user: User, query: str, limit: int = 20) -> lis
                 User.id != user.id,
                 User.status == UserStatus.ACTIVE,
                 User.role == UserRole.PARENT,
-                full_name.ilike(f"%{query.strip()}%"),
+                contains_ilike(full_name, query.strip()),
             )
             .order_by(User.last_name, User.first_name)
             .limit(limit)
