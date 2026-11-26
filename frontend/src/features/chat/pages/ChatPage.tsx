@@ -10,6 +10,7 @@ import { useClasses } from '@/features/classes/api'
 import {
   canMessageAdmin,
   chatTabs,
+  childrenLabel,
   useChatContacts,
   useChats,
   useOpenAdminChat,
@@ -130,11 +131,12 @@ export function ChatPage() {
       <NewMessageDialog
         open={isNewMessageOpen}
         title="New message"
-        description="Write to any parent in SchoolMoney. Find them by name."
+        description="Write to parents from your classes. Find them by name."
         noun="parents"
         minChars={2}
         onSearch={setContactQuery}
         results={contacts}
+        describe={(contact) => childrenLabel(contact.children) ?? ''}
         onClose={handleCloseNewMessage}
         onSelect={handleSelectContact}
         openingUserId={

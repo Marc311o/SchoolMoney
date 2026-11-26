@@ -8,7 +8,7 @@ from app.modules.users.enums import UserRole, UserStatus
 from app.modules.users.models import User
 from tests.chat.helpers import Person, list_chats, messages, open_direct, person, send
 from tests.conftest import AuthHeaders
-from tests.factories import make_class
+from tests.factories import make_child, make_class, make_membership
 
 
 @pytest.fixture
@@ -87,14 +87,30 @@ def test_cannot_open_direct_chat_with_unknown_blocked_or_admin(
     assert response.status_code == 404
 
 
-def test_contacts_search_by_name(client: TestClient, db: Session, anna, marek, admin):
-    def search(q: str) -> list[str]:
+def test_contacts_search_scoped_to_shared_classes_with_children(
+    client: TestClient, db: Session, auth_headers: AuthHeaders, anna, marek, admin
+):
+    outsider = person(db, auth_headers, "marek.obcy@example.com", "Marek", "Obcy")
+
+    shared_class = make_class(db, anna.id, name="1A")
+    other_class = make_class(db, outsider.id, name="2B")
+    marek_child = make_child(db, marek.id, first_name="Ala", last_name="Lis")
+    make_membership(db, marek_child.id, shared_class.id)
+    outsider_child = make_child(db, outsider.id, first_name="Olek", last_name="Obcy")
+    make_membership(db, outsider_child.id, other_class.id)
+    db.commit()
+
+    def search(q: str) -> list[dict]:
         response = client.get("/api/chats/contacts", params={"q": q}, headers=anna.headers)
         assert response.status_code == 200, response.text
-        return [f"{user['first_name']} {user['last_name']}" for user in response.json()]
+        return response.json()
 
-    assert search("mar") == ["Marek Lis"]
-    assert search("marek lis") == ["Marek Lis"]
+    results = search("mar")
+    assert [f"{user['first_name']} {user['last_name']}" for user in results] == ["Marek Lis"]
+    assert results[0]["children"] == ["Ala Lis"]
+    assert [f"{user['first_name']} {user['last_name']}" for user in search("marek lis")] == [
+        "Marek Lis"
+    ]
     assert search("anna") == []  # not myself
     assert search("adam") == []  # not administrators
     assert (
@@ -157,4 +173,6 @@ def test_admin_chat_is_private_to_its_treasurer(
 
     assert anna_chat["id"] != marek_chat["id"]
     assert client.get(f"/api/chats/{anna_chat['id']}", headers=marek.headers).status_code == 404
+    send(client, anna, anna_chat["id"], "Hello admin")
+    send(client, marek, marek_chat["id"], "Hello admin 2")
     assert len(list_chats(client, admin, kind="ADMIN")) == 2

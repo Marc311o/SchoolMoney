@@ -3,6 +3,7 @@ import { alpha } from '@mui/material/styles'
 
 import {
   type ChatSummary,
+  childrenLabel,
   messagePreview,
   treasurerLabel,
 } from '@/features/chat/api'
@@ -25,6 +26,12 @@ export function ChatListItem({
 }: ChatListItemProps) {
   const hasUnread = chat.unread_count > 0
   const treasurer = treasurerLabel(chat)
+  const otherParticipant =
+    chat.kind === 'DIRECT' && chat.other_user
+      ? chat.participants.find((p) => p.user.id === chat.other_user?.id)
+      : undefined
+  const parentOf = childrenLabel(otherParticipant?.children)
+  const subtitle = treasurer ?? parentOf
 
   return (
     <ButtonBase
@@ -64,9 +71,9 @@ export function ChatListItem({
           </Typography>
         </Box>
 
-        {treasurer && (
+        {subtitle && (
           <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary' }}>
-            {treasurer}
+            {subtitle}
           </Typography>
         )}
 

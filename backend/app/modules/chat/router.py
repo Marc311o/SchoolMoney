@@ -18,6 +18,7 @@ from app.modules.auth.dependencies import authenticate_access_token, get_current
 from app.modules.chat import service
 from app.modules.chat.enums import ChatKind
 from app.modules.chat.schemas import (
+    ChatContactRead,
     ChatRead,
     DirectChatCreate,
     MessageCreate,
@@ -27,7 +28,6 @@ from app.modules.chat.schemas import (
 )
 from app.modules.chat.ws import manager
 from app.modules.users.models import User
-from app.modules.users.schemas import UserSummaryRead
 
 router = APIRouter(prefix="/chats", tags=["chat"])
 
@@ -76,14 +76,14 @@ def list_chats(
 
 @router.get(
     "/contacts",
-    response_model=list[UserSummaryRead],
-    summary="Parents to start a direct chat with, by name",
+    response_model=list[ChatContactRead],
+    summary="Parents in my classes to start a direct chat with, by name",
 )
 def search_contacts(
     user: CurrentUser,
     db: DbSession,
     q: Annotated[str, Query(min_length=2, max_length=100)],
-) -> list[User]:
+) -> list[ChatContactRead]:
     return service.search_contacts(db, user, q)
 
 

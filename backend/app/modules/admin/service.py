@@ -8,6 +8,7 @@ from sqlalchemy import Select, distinct, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.common.schemas import Page
+from app.common.search import contains_ilike
 from app.modules.admin.schemas import (
     AdminClassRead,
     AdminFundraiserRead,
@@ -72,11 +73,11 @@ def list_users(
     statement = select(User).where(User.role == UserRole.PARENT)
 
     if query and query.strip():
-        needle = f"%{query.strip()}%"
+        needle = query.strip()
         statement = statement.where(
             or_(
-                func.concat(User.first_name, " ", User.last_name).ilike(needle),
-                User.email.ilike(needle),
+                contains_ilike(func.concat(User.first_name, " ", User.last_name), needle),
+                contains_ilike(User.email, needle),
             )
         )
     if user_status is not None:
@@ -204,12 +205,12 @@ def list_fundraisers(
     )
 
     if query and query.strip():
-        needle = f"%{query.strip()}%"
+        needle = query.strip()
         statement = statement.where(
             or_(
-                Fundraiser.name.ilike(needle),
-                SchoolClass.name.ilike(needle),
-                func.concat(User.first_name, " ", User.last_name).ilike(needle),
+                contains_ilike(Fundraiser.name, needle),
+                contains_ilike(SchoolClass.name, needle),
+                contains_ilike(func.concat(User.first_name, " ", User.last_name), needle),
             )
         )
     if fundraiser_status is not None:

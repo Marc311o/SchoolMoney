@@ -91,6 +91,7 @@ def test_blocked_treasurer_is_marked(client: TestClient, db: Session, adam, anna
 
     chat = open_chat(client, adam, anna.id)
     assert chat["other_user_blocked"] is True
+    send(client, adam, chat["id"], "Hello")
     [listed] = list_chats(client, adam)
     assert listed["other_user_blocked"] is True
 

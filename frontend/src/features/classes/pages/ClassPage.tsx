@@ -30,7 +30,6 @@ import { AccessCodeCard } from '@/features/classes/components/AccessCodeCard'
 import { LeaveClassSection } from '@/features/classes/components/LeaveClassSection'
 import { ClassChildrenList } from '@/features/classes/components/ClassChildrenList'
 import { WaitingList } from '@/features/classes/components/WaitingList'
-import { ParentSearchSection } from '@/features/classes/components/ParentSearchSection'
 import { useOpenDirectChat } from '@/features/chat/api'
 import { fullName } from '@/lib/names'
 import { useState } from 'react'
@@ -189,12 +188,6 @@ export function ClassPage() {
     return <ClassLoadError notFound={isClassNotFound(error)} />
   }
 
-  const existingParentIds = schoolClass.children
-    .filter(
-      (member) => member.status === 'ACTIVE' || member.status === 'PENDING',
-    )
-    .map((member) => member.parent.id)
-
   const isTreasurer = schoolClass.my_role === 'TREASURER'
   const members = schoolClass.children.filter((m) => m.status === 'ACTIVE')
   const waiting = schoolClass.children.filter((m) => m.status === 'PENDING')
@@ -260,26 +253,7 @@ export function ClassPage() {
           </Stack>
         )}
       </PageHeader>
-      {isTreasurer && (
-        <Box
-          sx={{
-            display: 'grid',
-            gap: 2.5,
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
-            alignItems: 'stretch',
-            '& > *': {
-              minHeight: 280,
-            },
-          }}
-        >
-          <AccessCodeCard classId={classId} onNotify={notify} />
-          <ParentSearchSection
-            classId={classId}
-            existingParentIds={existingParentIds}
-          />
-        </Box>
-      )}
+      {isTreasurer && <AccessCodeCard classId={classId} onNotify={notify} />}
       {isTreasurer && waiting.length > 0 && (
         <PageSection title="Waiting for approval" count={waiting.length}>
           <WaitingList

@@ -7,6 +7,7 @@ import StatusBadge from '@/components/StatusBadge'
 import {
   type ChatKind,
   type ChatSummary,
+  childrenLabel,
   treasurerLabel,
 } from '@/features/chat/api'
 import { ChatAvatar } from '@/features/chat/components/ChatAvatar'
@@ -24,7 +25,7 @@ function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-/** "24 children · 19 parents", "Direct message", "SchoolMoney support" */
+/** "24 children · 19 parents", "Parent of Jan Nowak · Direct message", "SchoolMoney support" */
 function subtitle(chat: ChatSummary): string {
   switch (chat.kind) {
     case 'CLASS':
@@ -32,8 +33,13 @@ function subtitle(chat: ChatSummary): string {
         count(chat.children_count ?? 0, 'child', 'children'),
         count(chat.parents_count ?? 0, 'parent', 'parents'),
       ].join(' · ')
-    case 'DIRECT':
-      return 'Direct message'
+    case 'DIRECT': {
+      const otherParticipant = chat.other_user
+        ? chat.participants.find((p) => p.user.id === chat.other_user?.id)
+        : undefined
+      const kids = childrenLabel(otherParticipant?.children)
+      return kids ? `${kids} · Direct message` : 'Direct message'
+    }
     case 'ADMIN':
       // the treasurer sees "Administrator", the administrator sees the treasurer
       return treasurerLabel(chat) ?? 'SchoolMoney support'
